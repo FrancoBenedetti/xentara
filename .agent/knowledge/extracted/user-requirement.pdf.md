@@ -2,7 +2,7 @@
 
 ## Page 1
 
-Xentara  Xentara  Framework   
+Lume  Centrix  Framework   
 A  Programmable  Community  Intelligence  Layer  provided  as  a  platform  template  to  
 Community
  
@@ -10,9 +10,9 @@ Custodians
  
 Requirements  Speciﬁcation  
 1.   Identiﬁcation  
-Project  Name:  Xentara  Xentara  Framework  Product  Class:  Agentic  Content-Aggregation  Framework  (ACAF)  Runtime:  Hybrid  (Web  +  Telegram  Native)  
+Project  Name:  Lume  Centrix  Framework  Product  Class:  Agentic  Content-Aggregation  Framework  (ACAF)  Runtime:  Hybrid  (Web  +  Telegram  Native)  
 2.  Executive  Technical  Summary  for  Stakeholders  
-The  Xentara  Xentara  Framework  is  a  multi-tenant,  enterprise-grade  SaaS  platform  designed  to  
+The  Lume  Centrix  Framework  is  a  multi-tenant,  enterprise-grade  SaaS  platform  designed  to  
 transition
  
 online
@@ -88,14 +88,14 @@ core
 pillars:
  
 1.  The  7-Agent  Intelligence  Pipeline   
-Unlike  standard  RSS  readers,  Xentara  Xentara  employs  a  continuous  loop  of  specialized  
+Unlike  standard  RSS  readers,  Lume  Centrix  employs  a  continuous  loop  of  specialized  
 AI
  
 agents.
  
 The
  
-Xentara
+Centrix
  
 Layer
  
@@ -127,7 +127,7 @@ text).
  
 The
  
-Xentara
+Lume
  
 Layer
  
@@ -664,7 +664,7 @@ or
  
 Feeders.
  
-Hubs :  a  Hub  is  an  isolated,  bespoke  instance  of  the  Xentara  Xentara  framework  deployed  
+Hubs :  a  Hub  is  an  isolated,  bespoke  instance  of  the  Lume  Centrix  framework  deployed  
 for
  
 a
@@ -1038,9 +1038,9 @@ UI)
  Layer  Component  Function  
  Management  The  Admin  Console  (Control  Plane)  
 The  "Command  Center"  for  the  custodian.  Used  to  conﬁgure  boards,  whitelist  sources,  "tune"  agent  personas,  and  manage  paid  placements.  Includes  the  "Monitored  Sources  List"  -  a  curated  registry  of  approved  publishers  with  "Publisher  Proﬁling  Management"  and  "User  Taxonomy  Control"  (Casual  vs.  Registered  vs.  Admin);  also  manage  monetized  placements  via  the  Marketplace  &  Ad  Console .  
- Ingestion  Xentara  Agentic  Artefacts  
+ Ingestion  Centrix  Agentic  Artefacts  
 7  specialized  agents  (Sourcing,  Transcriber,  Translator,  Creative,  Taste  Predictor,  Rating  Proﬁler,  Publisher  Proﬁler)  that  monitor,  transcribe,  process,  and  mapping  Taste  Vectors  ("pre-rank"  multi-modal  sources  such  as  YT,  RSS,  Social),  and  the   Publisher  Proﬁler  (responsible  for  the  Establishment  Scorecard).  
- Curation  The  Xentara  Board  Engine  A  multi-tenant  controller  managing  up  to  10  conﬁgurable  board  repositories.  It  utilizes  Routing  Rules  to  push  agent  outputs  into  speciﬁc  Board  Archetypes  (e.g.,  standard  feeds,  calendars,  registries)  and  manages  the  Establishment  Scorecards .  Handles  metadata,  "Contracted"  vs.  "Expanded"  card  states,  and  Paid  
+ Curation  The  Lume  Board  Engine  A  multi-tenant  controller  managing  up  to  10  conﬁgurable  board  repositories.  It  utilizes  Routing  Rules  to  push  agent  outputs  into  speciﬁc  Board  Archetypes  (e.g.,  standard  feeds,  calendars,  registries)  and  manages  the  Establishment  Scorecards .  Handles  metadata,  "Contracted"  vs.  "Expanded"  card  states,  and  Paid  
 
 ## Page 5
 
@@ -1050,9 +1050,9 @@ Standard  Browser  Hub :  A  browser-based  Progressive  Web  App  providing  cr
  Delivery  (Tier  2)  Elite  Runtime  (Telegram  TMA)  
 Premium  Intelligence  Layer :  Featuring  100%  reliable  push  alerts,  personalized  "For  You"  feeds,  and  advanced  API  tools  like  the  "Add  to  RAG"  export.   
 3.3  SaaS  Multi-Tenancy  &  Infrastructure  Architecture  To  ensure  rapid  market  deployment  and  low  friction  for  Community  Custodians,  the  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 Framework
  
@@ -1432,9 +1432,9 @@ the
  
 underlying
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 platform
  
@@ -1631,9 +1631,9 @@ the
  
 centralized
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 engine,
  
@@ -1682,7 +1682,7 @@ white-label
 illusion.
  
 3.4  The  Intelligence  Layer  (Agentic  Pipeline)  
-The  Xentara  Xentara  framework  operates  on  a  continuous,  7-agent  feedback  loop.  These  
+The  Lume  Centrix  framework  operates  on  a  continuous,  7-agent  feedback  loop.  These  
 specialized
  
 AI
@@ -1718,7 +1718,7 @@ content.
 
 ## Page 7
 
-3.4.1    Ingestion  &  Processing  Agents  (The  "Xentara"  Layer)   This  subset  handles  the  initial  extraction  and  cleaning  of  noisy,  multi-modal  
+3.4.1    Ingestion  &  Processing  Agents  (The  "Centrix"  Layer)   This  subset  handles  the  initial  extraction  and  cleaning  of  noisy,  multi-modal  
 internet
  
 data.
@@ -1852,7 +1852,7 @@ to
  
 summarization.
  
-3.4.2   Formaing  &  Predictive  Agents  (The  "Xentara"  Layer)   This  subset  generates  the  standardized  presentation  and  pre-calculates  
+3.4.2   Formaing  &  Predictive  Agents  (The  "Lume"  Layer)   This  subset  generates  the  standardized  presentation  and  pre-calculates  
 algorithmic
  
 relevance.
@@ -2190,9 +2190,9 @@ hub
  
 for
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 Framework.
  
@@ -5017,9 +5017,9 @@ outside
  
 the
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 platform.
  
@@ -6231,9 +6231,9 @@ pipeline.
 ○  Knowledge  Base:  The  RAG  is  dual-indexed.  It  is  populated  with  the  
 comprehensive
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 Body
  
@@ -6290,7 +6290,7 @@ and
 workﬂows.
  
 ●  Framework  Aribution  
-○  "Powered  by  Xentara  Xentara":  A  mandatory,  unobtrusive  badge  or  text  link  
+○  "Powered  by  Lume  Centrix":  A  mandatory,  unobtrusive  badge  or  text  link  
 acknowledging
  
 the
@@ -6333,9 +6333,9 @@ the
  
 overarching
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 public
  
@@ -7056,9 +7056,9 @@ of
  
 the
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 aggregation
  
@@ -7737,9 +7737,9 @@ browsing).
  
 5.1  The  Telegram  UI  Host  Paradigm  
 Unlike  traditional  Telegram  "Channels"  (which  are  passive,  one-way  broadcasts),  the  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 framework
  
@@ -8258,7 +8258,7 @@ by
  
 the
  
-Xentara
+Centrix
  
 Pipeline.
  
@@ -8371,7 +8371,7 @@ speciﬁc
 interests.
  
 6.  User  Taxonomy  &  The  Administrator  Console  
-This  section  deﬁnes  the  hierarchical  user  access  levels  across  the  Xentara  Xentara  Hub  and  
+This  section  deﬁnes  the  hierarchical  user  access  levels  across  the  Lume  Centrix  Hub  and  
 the
  
 functional
@@ -8986,7 +8986,7 @@ channel).
 
 ## Page 29
 
-6.2.2  Board  Typology  &  Presentation  Architecture  The  Xentara  Xentara  Framework  utilizes  a  polymorphic  board  architecture.  The  
+6.2.2  Board  Typology  &  Presentation  Architecture  The  Lume  Centrix  Framework  utilizes  a  polymorphic  board  architecture.  The  
 Admin
  
 must
@@ -9472,7 +9472,7 @@ routing
 conﬁgurations:
  
 ●  External  Monitored  Media  Boards:  Populated  autonomously  by  the  
-Xentara
+Centrix
  
 Agentic
  
@@ -10719,9 +10719,9 @@ managing
  
 a
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 Hub
  
@@ -11064,9 +11064,9 @@ of
  
 the
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 Framework.
  
@@ -11320,7 +11320,7 @@ dead
  
 endpoints.
  
-3.  Pipeline  Processing :  If  valid,  the  link  is  pushed  through  the  standard  Xentara  
+3.  Pipeline  Processing :  If  valid,  the  link  is  pushed  through  the  standard  Centrix  
 pipeline
  
 (Transcriber,
@@ -11879,9 +11879,9 @@ ensure
  
 the
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 Framework
  
@@ -12643,7 +12643,7 @@ conﬁguration
 seings.
  
 9.2  Identity  &  Access  Management  (IAM)  
-●  USER:  The  global  identity  of  a  person  across  the  entire  Xentara  Xentara  platform.  Stores  
+●  USER:  The  global  identity  of  a  person  across  the  entire  Lume  Centrix  platform.  Stores  
 Google
  
 Auth
@@ -12992,7 +12992,7 @@ Tag
  
  
 Appendix  A:  Tier  2  Runtime  (Telegram  Bot  &  Mini  App  Integration)  
-A.1  Overview  The  Xentara  Xentara  Framework  utilizes  a  dual-runtime  architecture.  While  the  
+A.1  Overview  The  Lume  Centrix  Framework  utilizes  a  dual-runtime  architecture.  While  the  
 Tier
  
 1
@@ -13092,9 +13092,9 @@ between
  
 the
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 backend
  
@@ -13561,7 +13561,7 @@ Key  Dierences  from  Telegram  Runtime  (Elite  Tier)
  Onboarding  Friction  Google  Auth  →  optional  Telegram  link  Instant  after  linking  
  Primary  Strength  SEO,  guest  discovery,  desktop  experience  Mobile-ﬁrst,  alerts,  zero-download  install  
  Interaction  Style  Full-page  web  UI,  grid/list  views  Chat-embedded,  inline  keyboards,  slide-ups  
- In  essence,  the  PWA  is  the  open  door  to  the  Xentara  Xentara  ecosystem—optimized  for  
+ In  essence,  the  PWA  is  the  open  door  to  the  Lume  Centrix  ecosystem—optimized  for  
 broad
  
 reach,
@@ -13746,7 +13746,7 @@ Marketing
  
 Website
  
-The  public-facing  Xentara  Xentara  website  serves  strictly  as  the  marketing  and  conversion  
+The  public-facing  Lume  Centrix  website  serves  strictly  as  the  marketing  and  conversion  
 portal
  
 for
@@ -13896,9 +13896,9 @@ own
  
 bespoke
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 Hubs.
  
@@ -13973,9 +13973,9 @@ programmable
  
 engine.
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 autonomously
  
@@ -14050,9 +14050,9 @@ mobile
  
 apps.
  
-Xentara
+Lume
  
-Xentara
+Centrix
  
 provides
  
@@ -14074,7 +14074,7 @@ peer-review.
  
 ●  Visual:  A  simple  "Before  &  After"  diagram.  
 ○  Before:  A  messy  web  of  YouTube,  X,  and  RSS  feeds  pointing  to  a  confused  user.  
-○  After:  The  same  feeds  passing  through  the  "Xentara  Pipeline"  into  clean,  
+○  After:  The  same  feeds  passing  through  the  "Centrix  Pipeline"  into  clean,  
 categorized
  
 boards.
