@@ -3,6 +3,8 @@ import { logout } from '@/app/login/actions'
 import styles from './dashboard.module.css'
 import CreateHubForm from '@/components/dashboard/CreateHubForm'
 import { createClient } from '@/utils/supabase/server'
+import SourceList from '@/components/dashboard/SourceList'
+import { Hub } from '@/types/database'
 
 export default async function DashboardPage() {
   const hubs = await getHubs()
@@ -37,13 +39,19 @@ export default async function DashboardPage() {
             <p>No hubs found. Create your first community hub above.</p>
           </div>
         ) : (
-          hubs.map((hub) => (
+          hubs.map((hub: Hub) => (
             <div key={hub.id} className={styles.hubCard}>
-              <h3>{hub.name}</h3>
-              <p>Slug: {hub.slug}</p>
-              <div style={{ marginTop: '1rem', fontSize: '0.75rem', opacity: 0.6 }}>
-                ID: {hub.id}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h3>{hub.name}</h3>
+                  <p>Slug: {hub.slug}</p>
+                </div>
+                <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>
+                  ID: {hub.id.slice(0, 8)}...
+                </div>
               </div>
+              
+              <SourceList hubId={hub.id} />
             </div>
           ))
         )}

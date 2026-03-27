@@ -76,6 +76,97 @@ export interface Database {
           is_public?: boolean
         }
       }
+      monitored_sources: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          hub_id: string
+          name: string
+          type: 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual'
+          url: string
+          config: Json
+          last_fetched_at: string | null
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          hub_id: string
+          name: string
+          type?: 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual'
+          url: string
+          config?: Json
+          last_fetched_at?: string | null
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          hub_id?: string
+          name?: string
+          type?: 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual'
+          url?: string
+          config?: Json
+          last_fetched_at?: string | null
+          is_active?: boolean
+        }
+      }
+      publications: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          hub_id: string
+          source_id: string | null
+          title: string
+          raw_content: string | null
+          summary: string | null
+          byline: string | null
+          sentiment_score: number | null
+          tags: string[] | null
+          intelligence_metadata: Json
+          status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed'
+          source_url: string | null
+          published_at: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          hub_id: string
+          source_id?: string | null
+          title: string
+          raw_content?: string | null
+          summary?: string | null
+          byline?: string | null
+          sentiment_score?: number | null
+          tags?: string[] | null
+          intelligence_metadata?: Json
+          status?: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed'
+          source_url?: string | null
+          published_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          hub_id?: string
+          source_id?: string | null
+          title?: string
+          raw_content?: string | null
+          summary?: string | null
+          byline?: string | null
+          sentiment_score?: number | null
+          tags?: string[] | null
+          intelligence_metadata?: Json
+          status?: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed'
+          source_url?: string | null
+          published_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -84,10 +175,13 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      source_type: 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual'
+      publication_status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed'
     }
   }
 }
 
 export type Hub = Database['public']['Tables']['hubs']['Row']
 export type Board = Database['public']['Tables']['boards']['Row']
+export type MonitoredSource = Database['public']['Tables']['monitored_sources']['Row']
+export type Publication = Database['public']['Tables']['publications']['Row']
