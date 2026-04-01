@@ -117,3 +117,21 @@
 .input:focus {
   border-color: var(--primary);
 }
+
+.feedScrollArea {
+  max-height: 600px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-right: 0.5rem;
+}
+
+.feedScrollArea::-webkit-scrollbar {
+  width: 4px;
+}
+
+.feedScrollArea::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}

@@ -4,6 +4,7 @@ import styles from './dashboard.module.css'
 import CreateHubForm from '@/components/dashboard/CreateHubForm'
 import { createClient } from '@/utils/supabase/server'
 import SourceList from '@/components/dashboard/SourceList'
+import IntelligenceFeed from '@/components/dashboard/IntelligenceFeed'
 import { Hub } from '@/types/database'
 
 export default async function DashboardPage() {
@@ -52,6 +53,7 @@ export default async function DashboardPage() {
               </div>
               
               <SourceList hubId={hub.id} />
+              <IntelligenceFeed hubId={hub.id} />
             </div>
           ))
         )}

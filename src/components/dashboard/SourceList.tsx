@@ -1,6 +1,9 @@
 import { getSources } from '@/app/dashboard/actions'
 import styles from '@/app/dashboard/dashboard.module.css'
 import AddSourceForm from './AddSourceForm'
+import DeleteSourceButton from './DeleteSourceButton'
+import EditSourceButton from './EditSourceButton'
+import RefreshSourceButton from './RefreshSourceButton'
 
 export default async function SourceList({ hubId }: { hubId: string }) {
   const sources = await getSources(hubId)
@@ -23,17 +26,25 @@ export default async function SourceList({ hubId }: { hubId: string }) {
               key={source.id} 
               style={{ 
                 display: 'flex', 
-                justifyContent: 'space-between', 
+                flexDirection: 'column',
+                gap: '0.25rem',
                 padding: '0.75rem 0',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
                 fontSize: '0.875rem' 
               }}
             >
-              <div>
-                <span style={{ fontWeight: 600 }}>{source.name}</span>
-                <span style={{ color: '#4b5563', marginLeft: '0.5rem' }}>({source.type})</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <span style={{ fontWeight: 600 }}>{source.name}</span>
+                    <span style={{ color: '#4b5563', marginLeft: '0.5rem' }}>({source.type})</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <RefreshSourceButton id={source.id} url={source.url} type={source.type} />
+                  <EditSourceButton source={source} />
+                  <DeleteSourceButton id={source.id} />
+                </div>
               </div>
-              <div style={{ color: '#6366f1', fontSize: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ color: '#6366f1', fontSize: '0.75rem', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {source.url}
               </div>
             </li>

@@ -1,10 +1,18 @@
+export const dynamic = "force-dynamic";
+
 import { serve } from "inngest/next";
 import { inngest } from "@/inngest/client";
-import { processIntelligencePipeline } from "@/inngest/functions";
+import { 
+  discoverNewContentOnce, 
+  discoverNewContentRecurring,
+  processIntelligencePipeline 
+} from "@/inngest/functions";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
+    discoverNewContentOnce,
+    discoverNewContentRecurring,
     processIntelligencePipeline,
   ],
 });

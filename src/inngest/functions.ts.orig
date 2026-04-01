@@ -1,0 +1,127 @@
+import { inngest } from "./client";
+import { createServiceClient } from "@/utils/supabase/service";
+import { ingestContent, discoverRecentItems } from "@/utils/sourcing/engine";
+
+/**
+ * 1. DISCOVERY AGENT (Instant)
+ * Triggered when a new source (channel/feed) is added.
+ */
+export const discoverNewContentOnce = inngest.createFunction(
+  { id: "xentara-discovery-instant", event: "xentara/source.added" },
+  async ({ event, step }) => {
+    const { sourceId, url, type } = event.data;
+    return await runDiscovery(sourceId, url, type, step);
+  }
+);
+
+/**
+ * 2. DISCOVERY AGENT (Recurring)
+ * Periodic scan of all whitelisted sources.
+ */
+export const discoverNewContentRecurring = inngest.createFunction(
+  { id: "xentara-discovery-cron" },
+  { cron: "0 * * * *" }, // Hourly scan
+  async ({ step }) => {
+    const supabase = createServiceClient();
+    const { data: sources } = await supabase.from('monitored_sources').select('*').eq('is_active', true);
+
+    if (!sources) return { count: 0 };
+
+    for (const source of sources) {
+       await step.run(`discover-${source.id}`, async () => {
+         // This sends a separate discovery job per source to avoid timeouts
+         await inngest.send({
+            name: "xentara/source.added",
+            data: { sourceId: source.id, url: source.url, type: source.type }
+         });
+       });
+    }
+
+    return { count: sources.length };
+  }
+);
+
+/**
+ * Helper: Perform discovery and detect new publications
+ */
+async function runDiscovery(sourceId: string, url: string, type: string, step: any) {
+    const items = await step.run("discover-items", async () => {
+        return await discoverRecentItems(url, type);
+    });
+
+    const supabase = createServiceClient();
+    let newCount = 0;
+
+    for (const item of items) {
+        const isNew = await step.run(`check-existing-${item.id}`, async () => {
+            const { data } = await supabase.from('publications').select('id').eq('source_url', item.link).single();
+            return !data;
+        });
+
+        if (isNew) {
+            newCount++;
+            await step.run(`create-pub-${item.id}`, async () => {
+                const { data: source } = await supabase.from('monitored_sources').select('hub_id').eq('id', sourceId).single();
+                
+                const { data: pub } = await supabase.from('publications').insert({
+                    hub_id: source?.hub_id,
+                    source_id: sourceId,
+                    title: item.title,
+                    source_url: item.link,
+                    status: 'raw'
+                }).select().single();
+
+                if (pub) {
+                    await inngest.send({
+                        name: "xentara/publication.detected",
+                        data: { publicationId: pub.id, sourceUrl: pub.source_url!, hubId: pub.hub_id }
+                    });
+                }
+            });
+        }
+    }
+
+    return { found: items.length, triggers: newCount };
+}
+
+
+/**
+ * 3. INTELLIGENCE PIPELINE (The 7 Agents)
+ */
+export const processIntelligencePipeline = inngest.createFunction(
+  { 
+    id: "xentara-intelligence-pipeline",
+    triggers: [{ event: "xentara/publication.detected" }] 
+  },
+  async ({ event, step }) => {
+    const { publicationId, sourceUrl } = event.data;
+
+    const rawData = await step.run("fetch-raw-content", async () => {
+      return await ingestContent(sourceUrl, 'youtube');
+    });
+
+    const transcript = await step.run("transcribe-media", async () => {
+      return rawData.content || "No transcript available.";
+    });
+
+    const summary = await step.run("summarize-publication", async () => {
+      return "# AISUMMARY: " + rawData.title + "\n\n" + transcript.substring(0, 1000) + "...";
+    });
+
+    await step.run("finalize-publication", async () => {
+        const supabase = createServiceClient();
+        await supabase
+            .from('publications')
+            .update({
+                title: rawData.title,
+                raw_content: transcript,
+                summary: summary,
+                intelligence_metadata: rawData.metadata,
+                status: 'ready'
+            })
+            .eq('id', publicationId);
+    });
+
+    return { status: "completed", publication: publicationId };
+  }
+);

@@ -49,12 +49,25 @@ export async function addSource(formData: FormData) {
     throw new Error('Name, URL, and Hub are required')
   }
 
-  // Insert source
+  // 1. DUPLICATE CHECK
+  const { data: existing } = await supabase
+    .from('monitored_sources')
+    .select('id')
+    .eq('hub_id', hubId)
+    .eq('url', url)
+    .single()
+
+  if (existing) {
+    throw new Error('This source is already added to this hub')
+  }
+
+  // 2. INSERT (Explicitly active)
   const { data: source, error } = await supabase.from('monitored_sources').insert({
     name,
     url,
     type,
-    hub_id: hubId
+    hub_id: hubId,
+    is_active: true
   }).select().single()
 
   if (error) {
@@ -62,31 +75,72 @@ export async function addSource(formData: FormData) {
     throw new Error(error.message)
   }
 
-  // Create a pending publication to start the pipeline
-  const { data: publication, error: pubError } = await supabase.from('publications').insert({
-    hub_id: hubId,
-    source_id: source.id,
-    title: `Initial Scan: ${name}`,
-    status: 'raw',
-    source_url: url
-  }).select().single()
+  // TRIGGER INITIAL DISCOVERY!
+  await inngest.send({
+    name: "xentara/source.added",
+    data: {
+      sourceId: source.id,
+      url: url,
+      type: type
+    }
+  })
 
-  if (pubError) {
-    console.error('Error creating initial publication:', pubError)
-  } else {
-    // TRIGGER THE INNGEST PIPELINE!
-    await inngest.send({
-      name: "xentara/publication.detected",
-      data: {
-        publicationId: publication.id,
-        hubId: hubId,
-        sourceUrl: url
-      }
-    })
+  revalidatePath('/dashboard')
+}
+
+
+export async function deleteSource(id: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('monitored_sources')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error deleting source:', error)
+    throw new Error(error.message)
   }
 
   revalidatePath('/dashboard')
 }
+
+export async function updateSource(id: string, formData: FormData) {
+  const supabase = await createClient()
+
+  const name = formData.get('name') as string
+  const url = formData.get('url') as string
+  const type = formData.get('type') as 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual'
+
+  if (!name || !url) {
+    throw new Error('Name and URL are required')
+  }
+
+  const { error } = await supabase
+    .from('monitored_sources')
+    .update({ name, url, type })
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error updating source:', error)
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/dashboard')
+}
+
+export async function refreshSource(id: string, url: string, type: string) {
+  await inngest.send({
+    name: "xentara/source.added",
+    data: {
+      sourceId: id,
+      url: url,
+      type: type
+    }
+  })
+}
+
+
 
 export async function getSources(hubId: string) {
   const supabase = await createClient()
@@ -120,3 +174,43 @@ export async function getHubs() {
 
   return hubs || []
 }
+
+export async function getRecentPublications(hubId: string, limit = 5) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('publications')
+    .select('*, monitored_sources(name)')
+    .eq('hub_id', hubId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Error fetching publications:', error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function reprocessPublication(id: string, url: string) {
+  const supabase = await createClient()
+
+  // 1. Reset status
+  await supabase
+    .from('publications')
+    .update({ status: 'raw' })
+    .eq('id', id)
+
+  // 2. Re-send Inngest event
+  await inngest.send({
+    name: "xentara/publication.detected",
+    data: {
+      publicationId: id,
+      sourceUrl: url
+    }
+  })
+
+  revalidatePath('/dashboard')
+}
+
