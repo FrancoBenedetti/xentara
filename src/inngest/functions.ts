@@ -10,15 +10,16 @@ import { summarizeWithAI, predictTaste } from "@/utils/ai/engine";
 export const discoverNewContentOnce = (inngest as any).createFunction(
   { id: "xentara-discovery-instant", triggers: [{ event: "xentara/source.added" }] },
   async ({ event, step }: any) => {
-    // 1. Handle manual dashboard invocations (no event.data)
-    if (!event?.data?.sourceId) {
-        return { status: "skipped", message: "No sourceId provided in event data." };
-    }
+    if (!event?.data?.sourceId) return { status: "skipped" };
     const { sourceId, url, type } = event.data;
-    return await runDiscovery(sourceId, url, type, step);
+    return await step.run("discover-and-track", async () => {
+        const supabase = createServiceClient();
+        const { data: source } = await (supabase.from('monitored_sources') as any).select('*').eq('id', sourceId).single();
+        if (!source) throw new Error("Source not found");
+        return await discoverRecentItems(source);
+    });
   }
 );
-
 
 /**
  * 2. DISCOVERY AGENT (Recurring)
@@ -28,7 +29,7 @@ export const discoverNewContentRecurring = (inngest as any).createFunction(
   { id: "xentara-discovery-cron", triggers: [{ cron: "0 * * * *" }] },
   async ({ step }: any) => {
     const supabase = createServiceClient();
-    const { data: sources } = await supabase.from('monitored_sources').select('*').eq('is_active', true);
+    const { data: sources } = await (supabase.from('monitored_sources') as any).select('*').eq('is_active', true);
 
     if (!sources) return { count: 0 };
 
@@ -44,22 +45,6 @@ export const discoverNewContentRecurring = (inngest as any).createFunction(
 );
 
 /**
- * Helper: Perform discovery and detect new publications
- */
-async function runDiscovery(sourceId: string, url: string, type: string, step: any) {
-    return await step.run("discover-and-track", async () => {
-        const supabase = createServiceClient();
-        const { data: source } = await supabase.from('monitored_sources').select('*').eq('id', sourceId).single();
-        
-        if (!source) throw new Error("Source not found");
-
-        return await discoverRecentItems(source);
-    });
-}
-
-
-
-/**
  * 3. INTELLIGENCE PIPELINE (The 7 Agents)
  */
 export const processIntelligencePipeline = (inngest as any).createFunction(
@@ -68,16 +53,16 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
     const { publicationId, sourceUrl, type } = event.data;
 
     try {
+        const supabase = createServiceClient();
+        const { data: pub } = await (supabase.from('publications') as any).select('hub_id').eq('id', publicationId).single();
+        if (!pub) throw new Error("Publication Context Lost");
+
         const rawData = await step.run("fetch-raw-content", async () => {
             return await ingestContent(sourceUrl, type || 'youtube');
         });
 
-        const isTextSource = rawData.metadata?.sourceType === 'rss';
-        const hasTranscript = rawData.metadata?.has_transcript || isTextSource;
-
-        const transcript = await step.run("identify-content-layer", async () => {
-            return rawData.content || "No content found.";
-        });
+        const transcript = rawData.content || "No content found.";
+        const hasTranscript = rawData.metadata?.has_transcript || rawData.metadata?.sourceType === 'rss';
 
         if (hasTranscript) {
             // 4. CREATIVE AGENT: SUMMARIZATION
@@ -85,15 +70,30 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                 return await summarizeWithAI(transcript, rawData.title, rawData.metadata);
             });
 
-            // 5. TASTE PREDICTOR AGENT: PRE-SCORING & BYLINE
+            // 5. TASTE PREDICTOR AGENT: taxonomy-aware analysis
             const analysis = await step.run("predict-taste-and-taxonomy", async () => {
-                return await predictTaste(summary, rawData.title);
+                return await predictTaste(summary, rawData.title, pub.hub_id);
+            });
+
+            // 6. TAXONOMY AGENT: Save Suggestions & Link Tags
+            await step.run("save-taxonomy-discoveries", async () => {
+                const supabase = createServiceClient();
+                if (analysis.new_suggestions && analysis.new_suggestions.length > 0) {
+                   for (const suggestion of analysis.new_suggestions) {
+                      await (supabase.from('hub_tags') as any).upsert({
+                         hub_id: pub.hub_id,
+                         name: suggestion.name,
+                         description: suggestion.description,
+                         is_confirmed: false
+                      }, { onConflict: 'hub_id, name' });
+                   }
+                }
             });
 
             await step.run("finalize-publication", async () => {
                 const supabase = createServiceClient();
-                await supabase
-                    .from('publications')
+                await (supabase
+                    .from('publications') as any)
                     .update({
                         title: rawData.title,
                         raw_content: transcript,
@@ -101,40 +101,18 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         byline: analysis.byline,
                         sentiment_score: analysis.sentiment,
                         tags: analysis.tags,
-                        intelligence_metadata: {
-                            ...rawData.metadata,
-                            taste_calculated_at: new Date().toISOString()
-                        },
                         status: 'ready'
-                    } as any)
+                    })
                     .eq('id', publicationId);
             });
 
-            return { status: "fully_processed", type: "intelligence_complete" };
-        } else {
-            // NO TRANSCRIPT: Stop here (waiting for Whisper agent later)
-            await step.run("record-partial-data", async () => {
-                const supabase = createServiceClient();
-                await supabase
-                    .from('publications')
-                    .update({
-                        title: rawData.title,
-                        raw_content: transcript, 
-                        intelligence_metadata: rawData.metadata || {},
-                        status: 'awaiting_transcript'
-                    } as any)
-                    .eq('id', publicationId);
-            });
-
-            return { status: "partially_processed", type: "metadata_only", message: "No transcript found, skipping summarization." };
+            return { status: "processed" };
         }
+        return { status: "pending_transcript" };
     } catch (error: any) {
-        console.error("Pipeline failure for PUB " + publicationId, error);
-        
         const supabase = createServiceClient();
-        await supabase.from('publications').update({ status: 'failed' } as any).eq('id', publicationId);
-        
-        return { status: "failed", error: error.message };
+        await (supabase.from('publications') as any).update({ status: 'failed' }).eq('id', publicationId);
+        throw error;
     }
   }
 );

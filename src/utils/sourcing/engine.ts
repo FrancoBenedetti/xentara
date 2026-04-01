@@ -3,6 +3,10 @@ import { fetchLatestArticlesFromFeed, fetchRSSMetadata } from './rss';
 import { inngest } from '@/inngest/client';
 import { createServiceClient } from '@/utils/supabase/service';
 
+/**
+ * DISCOVERY AGENT (#1): Scans sources for new content
+ * Now processes up to 10 new items per run.
+ */
 export async function discoverRecentItems(source: any) {
     let items = [];
     
@@ -13,9 +17,13 @@ export async function discoverRecentItems(source: any) {
     }
 
     const supabase = createServiceClient();
+    let newItemsCount = 0;
 
-    for (const item of items) {
-        // 1. Check if already exists in publications
+    // Process up to 10 latest items to populate the board quickly
+    const batch = items.slice(0, 10);
+
+    for (const item of batch) {
+        // 1. Check uniqueness
         const { data: existing } = await supabase
             .from('publications')
             .select('id')
@@ -24,7 +32,7 @@ export async function discoverRecentItems(source: any) {
 
         if (existing) continue;
 
-        // 2. Create raw entry
+        // 2. Create entry track
         const { data: pub, error: pubError } = await supabase
             .from('publications')
             .insert({
@@ -33,16 +41,18 @@ export async function discoverRecentItems(source: any) {
                 title: item.title,
                 source_url: item.link,
                 status: 'raw'
-            })
+            } as any)
             .select()
             .single();
 
         if (pubError) {
-            console.error("Error creating publication track:", pubError);
+            console.error("Discovery Save Error:", pubError.message);
             continue;
         }
 
-        // 3. Trigger Intelligence Pipeline
+        newItemsCount++;
+
+        // 3. Trigger Intelligence Pipeline (#2-5)
         await inngest.send({
             name: "xentara/publication.detected",
             data: { 
@@ -54,9 +64,13 @@ export async function discoverRecentItems(source: any) {
         });
     }
 
-    return items.length;
+    return { total_found: items.length, tracked: newItemsCount };
 }
 
+/**
+ * INGESTION ENGINE: Prepares content for AI analaysis
+ * Distinguishes between Media and Deep Text Ingestion.
+ */
 export async function ingestContent(url: string, type: string) {
     if (type === 'youtube') {
         const data = await fetchYoutubeMetadata(url);
@@ -74,14 +88,14 @@ export async function ingestContent(url: string, type: string) {
             metadata: {
                 ...feedData.metadata,
                 sourceType: 'rss',
-                has_transcript: true // RSS content is natively text-ready
+                has_transcript: true // Text is natively analysis-ready
             }
         };
     }
 
     return {
         title: "Unknown Content",
-        content: "Source type not supported for ingestion.",
+        content: "Source type not supported.",
         metadata: { sourceType: 'unknown' }
     };
 }

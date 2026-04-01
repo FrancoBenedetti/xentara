@@ -1,87 +1,98 @@
 'use client'
 
 import { addSource } from '@/app/dashboard/actions'
-import styles from '@/app/dashboard/dashboard.module.css'
-import { useState, useActionState } from 'react'
+import { useState, useActionState, useTransition } from 'react'
 
 export default function AddSourceForm({ hubId }: { hubId: string }) {
   const [showForm, setShowForm] = useState(false)
-  
-  const [error, action, isPending] = useActionState(
-    async (_prev: string | null, formData: FormData) => {
+  const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
+    const formData = new FormData(e.currentTarget)
+    
+    startTransition(async () => {
       try {
-        await addSource(formData)
+        await addSource(hubId, formData)
         setShowForm(false)
-        return null
-      } catch (err: unknown) {
-        if (err instanceof Error) return err.message
-        return 'Unknown error'
+      } catch (err: any) {
+        setError(err.message || 'Failed to add source')
       }
-    },
-    null
-  )
+    })
+  }
 
   if (!showForm) {
     return (
       <button 
-        className={styles.secondaryButton}
-        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+        style={{ 
+            padding: '0.4rem 0.8rem', 
+            fontSize: '0.75rem', 
+            fontWeight: 800, 
+            background: 'var(--indigo-soft)', 
+            color: 'var(--indigo)', 
+            border: '1px solid var(--indigo)', 
+            borderRadius: '0.4rem', 
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            marginTop: '0.5rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+        }}
         onClick={() => setShowForm(true)}
       >
-        + Add Source
+        + ADD SOURCE CHANNEL
       </button>
     )
   }
 
   return (
     <div style={{ 
-      background: 'rgba(255, 255, 255, 0.05)', 
-      padding: '1.5rem', 
+      background: 'var(--bg-surface)', 
+      padding: '1.25rem', 
       borderRadius: '0.75rem',
       border: '1px solid var(--border)',
-      marginTop: '1rem'
+      marginTop: '1rem',
+      boxShadow: 'var(--card-shadow)'
     }}>
-      <form action={action}>
-        <input type="hidden" name="hubId" value={hubId} />
-        
-        <div className={styles.formGroup}>
-          <label className={styles.label}>Source Name</label>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Source Name</label>
           <input 
             name="name" 
-            className={styles.input} 
-            placeholder="e.g. My Favorite Channel" 
+            placeholder="e.g. Andrei Jikh" 
             required 
+            style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '0.4rem', color: 'var(--text-main)', fontSize: '0.875rem' }}
           />
         </div>
 
-        <div className={styles.formGroup}>
-          <label className={styles.label}>Source Type</label>
-          <select name="type" className={styles.input} style={{ appearance: 'auto' }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Source Type</label>
+          <select name="type" style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '0.4rem', color: 'var(--text-main)', fontSize: '0.875rem', appearance: 'none' }}>
             <option value="youtube">YouTube</option>
             <option value="rss">RSS Feed</option>
-            <option value="rumble">Rumble</option>
-            <option value="manual">Manual</option>
           </select>
         </div>
 
-        <div className={styles.formGroup}>
-          <label className={styles.label}>URL</label>
+        <div style={{ marginBottom: '1.25rem' }}>
+          <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>URL or Handle</label>
           <input 
             name="url" 
-            className={styles.input} 
-            placeholder="https://..." 
+            placeholder="https://... or @handle" 
             required 
+            style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '0.4rem', color: 'var(--text-main)', fontSize: '0.875rem' }}
           />
         </div>
 
-        {error && <p style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</p>}
+        {error && <p style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.75rem', fontWeight: 700 }}>{error}</p>}
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button type="submit" className={styles.btnPrimary} style={{ padding: '0.5rem 1rem' }} disabled={isPending}>
-            {isPending ? 'Adding...' : 'Save Source'}
+          <button type="submit" disabled={isPending} style={{ background: 'var(--indigo)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '0.4rem', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer' }}>
+            {isPending ? 'ADDING...' : 'SAVE SOURCE'}
           </button>
-          <button type="button" className={styles.secondaryButton} style={{ marginTop: 0, padding: '0.5rem 1rem' }} onClick={() => setShowForm(false)}>
-            Cancel
+          <button type="button" onClick={() => setShowForm(false)} style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '0.5rem 1rem', borderRadius: '0.4rem', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer' }}>
+            CANCEL
           </button>
         </div>
       </form>

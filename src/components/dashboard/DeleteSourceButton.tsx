@@ -1,21 +1,18 @@
 'use client'
 
-import { deleteSource } from '@/app/dashboard/actions'
-import { useTransition } from 'react'
+import { removeSource } from '@/app/dashboard/actions'
+import { useState } from 'react'
 
 export default function DeleteSourceButton({ id }: { id: string }) {
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
 
-  const handleDelete = () => {
-    if (confirm('Are you sure you want to remove this source? All detected publications will remain in the system but no new ones will be scanned.')) {
-        startTransition(async () => {
-            try {
-                await deleteSource(id)
-            } catch (err) {
-                alert('Failed to delete source')
-                console.error(err)
-            }
-        })
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to remove this source?")) return
+    setIsPending(true)
+    try {
+      await removeSource(id)
+    } finally {
+      setIsPending(false)
     }
   }
 
@@ -23,19 +20,27 @@ export default function DeleteSourceButton({ id }: { id: string }) {
     <button 
       onClick={handleDelete}
       disabled={isPending}
+      title="Delete this monitored source"
       style={{
-        background: 'transparent',
-        border: 'none',
-        color: '#ef4444',
-        fontSize: '0.75rem',
+        background: 'rgba(239, 68, 68, 0.05)',
+        border: '1px solid rgba(239, 68, 68, 0.2)',
+        color: '#f87171',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         cursor: 'pointer',
-        padding: '0.25rem 0.5rem',
-        borderRadius: '0.25rem',
-        opacity: isPending ? 0.5 : 1,
-        textDecoration: 'underline'
+        padding: '0.4rem',
+        borderRadius: '0.4rem',
+        transition: 'all 0.2s',
+        opacity: isPending ? 0.5 : 1
       }}
     >
-      {isPending ? 'Removing...' : 'Remove'}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <line x1="10" y1="11" x2="10" y2="17" />
+        <line x1="14" y1="11" x2="14" y2="17" />
+      </svg>
     </button>
   )
 }

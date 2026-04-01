@@ -6,6 +6,7 @@ const parser = new Parser();
 
 /**
  * Resolves a handle (@name) or legacy user to a permanent Channel ID (UC...)
+ * YouTube's RSS feeds now strictly require the UC... ID for handles.
  */
 async function resolveChannelId(url: string): Promise<string> {
   const lastPart = url.split('/').pop() || '';
@@ -13,23 +14,49 @@ async function resolveChannelId(url: string): Promise<string> {
 
   try {
     const targetUrl = url.startsWith('http') ? url : `https://www.youtube.com/${url.startsWith('@') ? '' : '@'}${url}`;
-    const response = await fetch(targetUrl);
+    
+    const response = await fetch(targetUrl, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+        }
+    });
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    
     const html = await response.text();
-    const match = html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
-    if (match) return match[1];
-  } catch (e) {
-    console.warn("Could not resolve Channel ID via scraping", e);
+    
+    // 1. Try modern meta tag extraction (Most reliable)
+    const metaMatch = html.match(/<meta itemprop="identifier" content="(UC[a-zA-Z0-9_-]{22})"/);
+    if (metaMatch) return metaMatch[1];
+    
+    // 2. Try JSON configuration search
+    const jsonMatch = html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
+    if (jsonMatch) return jsonMatch[1];
+
+    // 3. Try browseId (Used in some internal YT JSON)
+    const browseMatch = html.match(/"browseId":"(UC[a-zA-Z0-9_-]{22})"/);
+    if (browseMatch) return browseMatch[1];
+
+  } catch (e: any) {
+    console.warn(`Could not resolve Channel ID for ${url}: ${e.message}`);
   }
-  return lastPart.replace('@', ''); // Fallback to raw handle
+  
+  // Fallback to legacy behavior if all else fails
+  return lastPart.replace('@', '');
 }
 
 export async function fetchLatestVideosFromChannel(channelUrl: string) {
   try {
-    const channelId = await resolveChannelId(channelUrl);
+    const resolvedId = await resolveChannelId(channelUrl);
     
-    // Strategy: always prefer channel_id if resolved, otherwise fallback to user
-    const param = channelId.startsWith('UC') ? 'channel_id' : 'user';
-    const feedUrl = `https://www.youtube.com/feeds/videos.xml?${param}=${channelId}`;
+    if (!resolvedId.startsWith('UC')) {
+        console.warn(`Using legacy fallback for ${channelUrl} - this may trigger a 404.`);
+    }
+
+    const param = resolvedId.startsWith('UC') ? 'channel_id' : 'user';
+    const feedUrl = `https://www.youtube.com/feeds/videos.xml?${param}=${resolvedId}`;
+    
+    console.info(`Syncing YouTube via RSS: ${feedUrl}`);
     
     const feed = await parser.parseURL(feedUrl);
     
@@ -39,8 +66,8 @@ export async function fetchLatestVideosFromChannel(channelUrl: string) {
         link: item.link,
         pubDate: item.pubDate
     }));
-  } catch (error) {
-    console.error("YouTube Discovery Error:", error);
+  } catch (error: any) {
+    console.error("YouTube Discovery Error [" + channelUrl + "]:", error.message);
     return [];
   }
 }
@@ -53,9 +80,7 @@ export async function fetchYoutubeMetadata(url: string) {
     const info = await ytdl.getBasicInfo(url, {
         requestOptions: {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
             }
         }
     });
@@ -67,8 +92,8 @@ export async function fetchYoutubeMetadata(url: string) {
         transcript = transcriptData.map(item => item.text).join(" ");
         hasTranscript = transcript.length > 50; 
     } catch (e) {
-        console.warn("Transcript failed:", e);
-        transcript = info.videoDetails.description || "No content found.";
+        console.warn("Transcript extraction failed for " + videoId);
+        transcript = info.videoDetails.description || "No full transcript available for this media.";
     }
 
     return {
@@ -79,18 +104,16 @@ export async function fetchYoutubeMetadata(url: string) {
         thumbnail: info.videoDetails.thumbnails[0]?.url,
         description: info.videoDetails.description,
         publishDate: info.videoDetails.publishDate,
-        author: info.videoDetails.author?.name
+        author: info.videoDetails.author?.name,
+        sourceType: 'youtube'
       }
     };
   } catch (error: any) {
     console.error("YouTube Ingestion Blocked:", error.message);
     return {
         title: "Youtube Entry (" + url + ")",
-        content: "Draft content: Automated ingestion partially failed due to rate limits.",
-        metadata: { has_transcript: false, original_url: url }
+        content: "Draft content: High volume processing may have temporarily limited ingestion data.",
+        metadata: { has_transcript: false, original_url: url, sourceType: 'youtube', status: 'limited' }
     };
   }
 }
-
-
-
