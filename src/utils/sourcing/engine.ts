@@ -53,15 +53,19 @@ export async function discoverRecentItems(source: any) {
         newItemsCount++;
 
         // 3. Trigger Intelligence Pipeline (#2-5)
-        await inngest.send({
-            name: "xentara/publication.detected",
-            data: { 
-                publicationId: pub.id, 
-                sourceUrl: item.link, 
-                hubId: source.hub_id,
-                type: source.type 
-            }
-        });
+        try {
+            await inngest.send({
+                name: "xentara/publication.detected",
+                data: { 
+                    publicationId: pub.id, 
+                    sourceUrl: item.link, 
+                    hubId: source.hub_id,
+                    type: source.type 
+                }
+            });
+        } catch (inngestError) {
+            console.warn("Could not trigger intelligence pipeline for item:", item.link, inngestError);
+        }
     }
 
     return { total_found: items.length, tracked: newItemsCount };

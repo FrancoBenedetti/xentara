@@ -34,10 +34,14 @@ export const discoverNewContentRecurring = (inngest as any).createFunction(
     if (!sources) return { count: 0 };
 
     for (const source of (sources as any[])) {
-        await inngest.send({
-          name: "xentara/source.added",
-          data: { sourceId: source.id, url: source.url, type: source.type }
-        });
+        try {
+            await inngest.send({
+              name: "xentara/source.added",
+              data: { sourceId: source.id, url: source.url, type: source.type }
+            });
+        } catch (inngestError) {
+            console.warn(`Failed to dispatch event for source ${source.id}:`, inngestError);
+        }
     }
 
     return { count: sources.length };
