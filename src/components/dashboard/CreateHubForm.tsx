@@ -4,7 +4,7 @@ import { createHub } from '@/app/dashboard/actions'
 import styles from '@/app/dashboard/dashboard.module.css'
 import { useState, useActionState } from 'react'
 
-export default function CreateHubForm() {
+export default function CreateHubForm({ isEmailConfirmed = false }: { isEmailConfirmed?: boolean }) {
   const [showForm, setShowForm] = useState(false)
   
   // React 19 / Next 15 Pattern
@@ -23,12 +23,21 @@ export default function CreateHubForm() {
 
   if (!showForm) {
     return (
-      <button 
-        className={styles.btnPrimary}
-        onClick={() => setShowForm(true)}
-      >
-        + Add New Hub
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <button 
+          className={styles.btnPrimary}
+          onClick={() => isEmailConfirmed ? setShowForm(true) : null}
+          disabled={!isEmailConfirmed}
+          style={!isEmailConfirmed ? { opacity: 0.5, cursor: 'not-allowed', filter: 'grayscale(1)' } : {}}
+        >
+          + Add New Hub
+        </button>
+        {!isEmailConfirmed && (
+          <span style={{ fontSize: '0.65rem', color: '#ef4444', fontWeight: 800, textTransform: 'uppercase' }}>
+            Verification Required
+          </span>
+        )}
+      </div>
     )
   }
 

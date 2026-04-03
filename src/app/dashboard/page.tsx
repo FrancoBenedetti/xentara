@@ -42,12 +42,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
 
+      {user && !user.email_confirmed_at && (
+        <div className={styles.authWarning}>
+           <p className={styles.authWarningText}>
+              <strong>Notice:</strong> Your email address ({user.email}) is not yet confirmed. Please verify your email to enable Hub creation.
+           </p>
+        </div>
+      )}
+
       <div className={styles.contentWrapper}>
         {/* ADD NEW HUB AREA (PRIORITIZED AT THE TOP) */}
         <section className={styles.sectionArea}>
              <h2 className={styles.sectionTitle}>Structure New Intelligence Hub</h2>
              <div className={styles.formWrapper}>
-                <CreateHubForm />
+                <CreateHubForm isEmailConfirmed={!!user?.email_confirmed_at} />
              </div>
         </section>
 

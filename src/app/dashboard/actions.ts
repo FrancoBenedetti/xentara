@@ -85,6 +85,7 @@ export async function createHub(formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
+  if (!user.email_confirmed_at) throw new Error('Email must be confirmed to create hubs')
 
   const hubData: Partial<Hub> = {
     name,

@@ -31,44 +31,44 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
   }
 
   return (
-    <div key={pub.id} style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '1rem', border: '1px solid var(--card-border)', boxShadow: 'var(--card-shadow)', position: 'relative' }}>
+    <div key={pub.id} className={styles.pubCard}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-         <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <div className={styles.pubCardHeader}>
+         <div className={styles.pubCardSource}>
             {pub.monitored_sources?.name || 'MEDIA ITEM'}
          </div>
          {getStatusBadge(pub.status)}
       </div>
 
-      <div style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '0.75rem', lineHeight: 1.3 }}>
+      <div className={styles.pubCardTitle}>
         {pub.title}
       </div>
 
       {pub.byline && (
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: 1.6, fontWeight: 600, borderLeft: '4px solid var(--indigo)', paddingLeft: '1rem' }}>
+        <div className={styles.pubCardByline}>
            {pub.byline}
         </div>
       )}
 
       {pub.curator_commentary && (
-        <div style={{ background: 'rgba(99, 102, 241, 0.03)', padding: '1rem', borderRadius: '0.75rem', border: '1px dashed var(--indigo)', marginBottom: '1.25rem' }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--indigo)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Curator Insight</p>
-            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.5 }}>{pub.curator_commentary}</p>
+        <div className={styles.pubCardInsight}>
+            <p className={styles.pubCardInsightTitle}>Curator Insight</p>
+            <p className={styles.pubCardInsightText}>{pub.curator_commentary}</p>
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+      <div className={styles.pubCardFooter}>
+        <div className={styles.pubCardTags}>
           {pub.tags?.slice(0, 5).map((tag: string) => (
-            <span key={tag} style={{ fontSize: '0.6rem', color: 'var(--indigo)', background: 'var(--indigo-soft)', border: '1px solid var(--indigo)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 900 }}>
+            <span key={tag} className={styles.pubCardTag}>
               #{tag.toUpperCase()}
             </span>
           ))}
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className={styles.pubCardActions}>
            {pub.sentiment_score !== null && (
-              <span style={{ display: 'block', height: '10px', width: '10px', borderRadius: '50%', background: getSentimentColor(pub.sentiment_score), boxShadow: `0 0 10px ${getSentimentColor(pub.sentiment_score)}44` }}></span>
+              <span className={styles.pubCardSentiment} style={{ background: getSentimentColor(pub.sentiment_score), boxShadow: `0 0 10px ${getSentimentColor(pub.sentiment_score)}44` }}></span>
            )}
            
            <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -85,8 +85,8 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
         </div>
       </div>
 
-      <div style={{ marginTop: '1.25rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-        <a href={pub.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <div className={styles.pubCardLinks}>
+        <a href={pub.source_url} target="_blank" rel="noopener noreferrer" className={styles.pubCardLink}>
           ORIGINAL ↗
         </a>
       </div>
