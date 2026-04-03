@@ -1,12 +1,12 @@
-import { createServiceClient } from './utils/supabase/service';
+import { createServiceClient } from '@/utils/supabase/service';
 
 async function backfill() {
     const supabase = createServiceClient();
     console.log("Activating all existing monitored sources...");
     const { data, error } = await supabase
         .from('monitored_sources')
-        .update({ is_active: true } as any)
-        .is('is_active', null); // Or just update all
+        .update({ is_active: true })
+        .is('is_active', null);
     
     if (error) {
         console.error("Backfill Failed:", error.message);
