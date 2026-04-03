@@ -23,7 +23,8 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
       case 'raw':
       case 'transcribing':
       case 'summarizing':
-        return <span style={{ ...commonStyles, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', animation: 'pulse 2s infinite' }}>AI IS WORKING...</span>
+        const statusLabel = status === 'transcribing' ? 'TRANSCRIBING...' : status === 'summarizing' ? 'SUMMARIZING...' : 'AI IS WORKING...';
+        return <span style={{ ...commonStyles, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', animation: 'pulse 2s infinite' }}>{statusLabel}</span>
       default:
         return <span style={{ ...commonStyles, background: 'rgba(156, 163, 175, 0.1)', color: 'var(--text-muted)' }}>{status?.toUpperCase() || 'UNKNOWN'}</span>
     }
@@ -47,8 +48,20 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
       </div>
 
       <div className={`${styles.pubCardTitle} ${isProcessing ? styles.pubCardProcessingTitle : ''}`}>
-        {isProcessing ? 'Curating latest insights...' : pub.title}
+        {isProcessing ? (
+          <>
+            <span style={{ fontSize: '0.65rem', display: 'block', marginBottom: '0.25rem', opacity: 0.8 }}>NEURAL REGENERATION IN PROGRESS...</span>
+            {pub.title}
+          </>
+        ) : pub.title}
       </div>
+
+      {pub.status === 'failed' && pub.error_message && (
+        <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: '0.5rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
+          <p style={{ margin: 0, color: '#ef4444', fontSize: '0.7rem', fontWeight: 800 }}>NEURAL FAULT:</p>
+          <p style={{ margin: 0, color: '#fca5a5', fontSize: '0.65rem', fontWeight: 600 }}>{pub.error_message}</p>
+        </div>
+      )}
 
       {!isProcessing && pub.byline && (
         <div className={styles.pubCardByline}>

@@ -64,6 +64,7 @@ export interface Publication {
   is_published: boolean;
   published_at: string;
   curator_published_at?: string;
+  error_message?: string | null;
   monitored_sources?: {
     name: string;
   };

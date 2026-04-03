@@ -21,6 +21,19 @@ async function summarizeInception(transcript: string, title: string) {
     headers: { "Authorization": `Bearer ${process.env.INCEPTION_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({ messages: [{ role: "user", content: prompt }], model: "mercury-2" })
   });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData?.error?.message || response.statusText;
+    
+    if (response.status === 401) throw new Error("Inception API: Unauthorized. Check API key.");
+    if (response.status === 429) throw new Error("Inception API: Rate Limit Exceeded.");
+    if (response.status === 402) throw new Error("Inception API: Payment Required (Balance/Credits exhausted).");
+    if (response.status >= 500) throw new Error(`Inception API: Server error (${response.status})`);
+    
+    throw new Error(`Inception API Error [${response.status}]: ${message}`);
+  }
+
   const data = await response.json();
   return data.choices?.[0]?.message?.content || "No summary returned.";
 }
@@ -81,6 +94,12 @@ export async function predictTaste(summary: string, title: string, hubId: string
         model: "mercury-2"
       })
     });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData?.error?.message || response.statusText;
+        throw new Error(`Inception API Taste Error [${response.status}]: ${message}`);
+    }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";

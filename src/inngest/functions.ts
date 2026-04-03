@@ -61,7 +61,10 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         const { data: pub } = await (supabase.from('publications') as any).select('hub_id').eq('id', publicationId).single();
         if (!pub) throw new Error("Publication Context Lost");
 
+        // 1. CONTENT INGESTION
         const rawData = await step.run("fetch-raw-content", async () => {
+            const supabase = createServiceClient();
+            await (supabase.from('publications') as any).update({ status: 'transcribing' }).eq('id', publicationId);
             return await ingestContent(sourceUrl, type || 'youtube');
         });
 
@@ -69,17 +72,19 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         const hasTranscript = rawData.metadata?.has_transcript || rawData.metadata?.sourceType === 'rss';
 
         if (hasTranscript) {
-            // 4. CREATIVE AGENT: SUMMARIZATION
+            // 2. CREATIVE AGENT: SUMMARIZATION
             const summary = await step.run("summarize-content", async () => {
+                const supabase = createServiceClient();
+                await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId);
                 return await summarizeWithAI(transcript, rawData.title, rawData.metadata);
             });
 
-            // 5. TASTE PREDICTOR AGENT: taxonomy-aware analysis
+            // 3. TASTE PREDICTOR AGENT: taxonomy-aware analysis
             const analysis = await step.run("predict-taste-and-taxonomy", async () => {
                 return await predictTaste(summary, rawData.title, pub.hub_id);
             });
 
-            // 6. TAXONOMY AGENT: Save Suggestions & Link Tags
+            // 4. TAXONOMY AGENT: Save Suggestions & Link Tags
             await step.run("save-taxonomy-discoveries", async () => {
                 const supabase = createServiceClient();
                 const tagNames = [...(analysis.tags || [])];
@@ -129,7 +134,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         summary: summary,
                         byline: analysis.byline,
                         sentiment_score: analysis.sentiment,
-                        // Legacy tags array removed in favor of publication_hub_tags
+                        error_message: null,
                         status: 'ready'
                     })
                     .eq('id', publicationId);
@@ -137,10 +142,20 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
 
             return { status: "processed" };
         }
-        return { status: "pending_transcript" };
+        
+        await (supabase.from('publications') as any).update({ 
+            status: 'failed', 
+            error_message: "Media ingestion returned no usable transcript or text."
+        }).eq('id', publicationId);
+
+        return { status: "no_transcript" };
     } catch (error: any) {
+        console.error("Intelligence Pipeline Error:", error);
         const supabase = createServiceClient();
-        await (supabase.from('publications') as any).update({ status: 'failed' }).eq('id', publicationId);
+        await (supabase.from('publications') as any).update({ 
+            status: 'failed',
+            error_message: error.message || "An unexpected neural processing error occurred."
+        }).eq('id', publicationId);
         throw error;
     }
   }
