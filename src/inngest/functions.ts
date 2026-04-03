@@ -82,6 +82,9 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             // 6. TAXONOMY AGENT: Save Suggestions & Link Tags
             await step.run("save-taxonomy-discoveries", async () => {
                 const supabase = createServiceClient();
+                const tagNames = [...(analysis.tags || [])];
+                
+                // 1. Handle new suggestions
                 if (analysis.new_suggestions && analysis.new_suggestions.length > 0) {
                    for (const suggestion of analysis.new_suggestions) {
                       await (supabase.from('hub_tags') as any).upsert({
@@ -90,7 +93,29 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                          description: suggestion.description,
                          is_confirmed: false
                       }, { onConflict: 'hub_id, name' });
+                      
+                      if (!tagNames.includes(suggestion.name)) {
+                          tagNames.push(suggestion.name);
+                      }
                    }
+                }
+
+                // 2. Fetch IDs for all tags associated with this hub/publication
+                const { data: hubTags } = await (supabase
+                    .from('hub_tags') as any)
+                    .select('id, name')
+                    .eq('hub_id', pub.hub_id)
+                    .in('name', tagNames);
+
+                if (hubTags && hubTags.length > 0) {
+                    const links = hubTags.map((tag: any) => ({
+                        publication_id: publicationId,
+                        tag_id: tag.id
+                    }));
+
+                    await (supabase
+                        .from('publication_hub_tags') as any)
+                        .upsert(links, { onConflict: 'publication_id, tag_id' });
                 }
             });
 
@@ -104,7 +129,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         summary: summary,
                         byline: analysis.byline,
                         sentiment_score: analysis.sentiment,
-                        tags: analysis.tags,
+                        // Legacy tags array removed in favor of publication_hub_tags
                         status: 'ready'
                     })
                     .eq('id', publicationId);

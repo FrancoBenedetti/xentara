@@ -21,6 +21,11 @@ export default function DashboardLayout({
                  <span style={{ color: 'var(--indigo)' }}>⬢</span> Hubs
               </Link>
             </li>
+            <li style={{ marginBottom: '1.5rem' }}>
+              <Link href="/dashboard/taxonomy" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'inherit', fontWeight: 700, fontSize: '0.9rem' }}>
+                 <span style={{ color: 'var(--indigo)' }}>✦</span> Taxonomy
+              </Link>
+            </li>
             <li style={{ marginBottom: '1.5rem', opacity: 0.3, cursor: 'not-allowed' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
                  <span>⬡</span> Boards (Locked)
