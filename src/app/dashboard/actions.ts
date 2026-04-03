@@ -49,6 +49,26 @@ export interface MonitoredSource {
   is_active: boolean;
 }
 
+export interface Publication {
+  id: string;
+  hub_id: string;
+  source_id: string;
+  title: string;
+  byline: string;
+  summary: string;
+  status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed' | 'published';
+  source_url: string;
+  tags: string[];
+  sentiment_score: number | null;
+  curator_commentary?: string;
+  is_published: boolean;
+  published_at: string;
+  curator_published_at?: string;
+  monitored_sources?: {
+    name: string;
+  };
+}
+
 interface PublicationResult {
   monitored_sources: {
     type: string;
@@ -270,16 +290,62 @@ export async function refreshSource(id: string, url: string, type: string) {
 /**
  * INTELLIGENCE & PUBLICATIONS
  */
-export async function getRecentPublications(hubId: string) {
+export async function getRecentPublications(hubId: string): Promise<Publication[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('publications')
-    .select('*')
+    .select('*, monitored_sources(name)')
     .eq('hub_id', hubId)
+    .in('status', ['ready', 'published'])
     .order('created_at', { ascending: false })
     .limit(20)
 
-  return data || []
+  return (data as unknown as Publication[]) || []
+}
+
+export async function getPublicationHistory(hubId: string, page: number = 0): Promise<Publication[]> {
+  const supabase = await createClient()
+  const pageSize = 20
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
+  const { data } = await supabase
+    .from('publications')
+    .select('*, monitored_sources(name)')
+    .eq('hub_id', hubId)
+    .eq('status', 'published')
+    .order('curator_published_at', { ascending: false })
+    .range(from, to)
+
+  return (data as unknown as Publication[]) || []
+}
+
+export async function publishPublication(id: string, formData: FormData) {
+  const supabase = await createClient()
+  
+  const title = formData.get('title') as string
+  const byline = formData.get('byline') as string
+  const summary = formData.get('summary') as string
+  const curator_commentary = formData.get('curator_commentary') as string
+
+  const { error } = await supabase
+    .from('publications' as never)
+    .update({
+      title,
+      byline,
+      summary,
+      curator_commentary,
+      status: 'published',
+      is_published: true,
+      curator_published_at: new Date().toISOString()
+    } as never)
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+  
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/history')
+  return { success: true }
 }
 
 export async function updateHubBranding(id: string, formData: FormData) {

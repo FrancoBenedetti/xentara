@@ -26,6 +26,11 @@ export default function DashboardLayout({
                  <span style={{ color: 'var(--indigo)' }}>✦</span> Taxonomy
               </Link>
             </li>
+            <li style={{ marginBottom: '1.5rem' }}>
+              <Link href="/dashboard/history" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'inherit', fontWeight: 700, fontSize: '0.9rem' }}>
+                 <span style={{ color: 'var(--indigo)' }}>◷</span> History
+              </Link>
+            </li>
             <li style={{ marginBottom: '1.5rem', opacity: 0.3, cursor: 'not-allowed' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, fontSize: '0.9rem' }}>
                  <span>⬡</span> Boards (Locked)
@@ -40,7 +45,7 @@ export default function DashboardLayout({
         </nav>
 
         <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
-           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase 2: Stable Intel</div>
+           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase 5: Manual curated</div>
         </div>
       </aside>
       

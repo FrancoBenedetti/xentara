@@ -98,7 +98,7 @@ V2 introduces a core architectural toggle per Hub:
 - [x] Phase 1: Core Hub & Source Management
 - [x] Phase 2: Agentic Pipeline (Discovery -> Summary -> Taste)
 - [x] Phase 3: Taxonomy Confirmation Workflow (Human-in-the-loop)
-- [ ] Phase 4: Hub RBAC & Team Management (Editors/Maintainers)
+- [x] Phase 4: Hub RBAC & Team Management (Editors/Maintainers)
 - [ ] Phase 5: Publication History & Manual Republication System
 - [ ] Phase 6: Consumer Identity & Linking (PWA <-> Messengers)
 - [ ] Phase 7: Selective Push Implementation (WhatsApp/Telegram Webhooks)
