@@ -10,10 +10,32 @@ import { createServiceClient } from '@/utils/supabase/service';
 export async function discoverRecentItems(source: any) {
     let items: any[] = [];
     
-    if (source.type === 'youtube') {
-        items = await fetchLatestVideosFromChannel(source.url);
-    } else if (source.type === 'rss') {
-        items = await fetchLatestArticlesFromFeed(source.url);
+    try {
+        if (source.type === 'youtube') {
+            items = await fetchLatestVideosFromChannel(source.url);
+        } else if (source.type === 'rss') {
+            items = await fetchLatestArticlesFromFeed(source.url);
+        }
+        
+        if (items.length === 0) {
+            console.warn(`No items found for source: ${source.url}`);
+        }
+    } catch (discoveryError: any) {
+        console.error(`Discovery process failed for ${source.url}:`, discoveryError.message);
+        
+        // Create a failure notice in the publications so the curator sees the issue
+        const supabase = createServiceClient();
+        await supabase.from('publications').insert({
+            hub_id: source.hub_id,
+            source_id: source.id,
+            title: `NEURAL FAULT: Discovery Failed`,
+            byline: `Source: ${source.name}`,
+            source_url: source.url,
+            status: 'failed',
+            error_message: discoveryError.message || "Failed to resolve source or fetch items."
+        } as any);
+        
+        return { total_found: 0, tracked: 0, error: discoveryError.message };
     }
 
     const supabase = createServiceClient();

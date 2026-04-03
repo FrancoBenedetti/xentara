@@ -7,11 +7,15 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
   if (process.env.INCEPTION_API_KEY) {
     try {
       return await summarizeInception(transcript, title);
-    } catch (e) {
-      console.warn("Inception Labs failed, falling back...");
+    } catch (e: any) {
+      console.warn("Inception Labs failed, falling back...", e.message);
     }
   }
-  // Fallback... (Omitted for brevity, kept in actual file)
+
+  // Fallback: Return truncated original if AI is unavailable or fails
+  console.info("Using local fallback summarization strategy (truncation).");
+  const baseContent = transcript || "No usable text was found in the source.";
+  return baseContent.substring(0, 1000) + "... [Note: AI Neural Link was unavailable, showing raw excerpt]";
 }
 
 async function summarizeInception(transcript: string, title: string) {
@@ -49,7 +53,11 @@ export interface TasteAnalysis {
  * Predicts the "Taste" of a publication (Sentiment, Tags, Byline).
  * Scoped to the specific Hub's taxonomy and strictness rules.
  */
-export async function predictTaste(summary: string, title: string, hubId: string): Promise<TasteAnalysis> {
+export async function predictTaste(summary: string | null | undefined, title: string, hubId: string): Promise<TasteAnalysis> {
+  if (!summary || summary.trim().length === 0) {
+    return { byline: "No content to analyze.", sentiment: 0, tags: [] };
+  }
+
   const supabase = await createClient()
   
   // 1. Fetch Hub Taxonomy & Strictness

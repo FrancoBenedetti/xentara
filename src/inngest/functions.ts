@@ -150,12 +150,22 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
 
         return { status: "no_transcript" };
     } catch (error: any) {
-        console.error("Intelligence Pipeline Error:", error);
-        const supabase = createServiceClient();
-        await (supabase.from('publications') as any).update({ 
-            status: 'failed',
-            error_message: error.message || "An unexpected neural processing error occurred."
-        }).eq('id', publicationId);
+        console.error("CRITICAL: Intelligence Pipeline Fault:", error);
+        
+        try {
+            const supabase = createServiceClient();
+            const { error: updateError } = await (supabase.from('publications') as any).update({ 
+                status: 'failed',
+                error_message: error.message || "An unexpected neural processing error occurred."
+            }).eq('id', publicationId);
+            
+            if (updateError) {
+                console.error("Secondary Fault: Could not update publication status to FAILED:", updateError.message);
+            }
+        } catch (secondaryError) {
+            console.error("Tertiary Fault: Crash during error reporting:", secondaryError);
+        }
+        
         throw error;
     }
   }

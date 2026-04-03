@@ -8,20 +8,23 @@ const parser = new Parser();
  * Resolves a handle (@name) or legacy user to a permanent Channel ID (UC...)
  * YouTube's RSS feeds now strictly require the UC... ID for handles.
  */
-async function resolveChannelId(url: string): Promise<string> {
+async function resolveChannelId(url: string): Promise<string | null> {
   const lastPart = url.split('/').pop() || '';
   if (lastPart.startsWith('UC')) return lastPart; // Already an ID
+
+  const isHandle = url.includes('/@') || lastPart.startsWith('@');
 
   try {
     const targetUrl = url.startsWith('http') ? url : `https://www.youtube.com/${url.startsWith('@') ? '' : '@'}${url}`;
     
     const response = await fetch(targetUrl, {
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9'
         }
     });
 
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) throw new Error(`YouTube returned status ${response.status}`);
     
     const html = await response.text();
     
@@ -29,19 +32,26 @@ async function resolveChannelId(url: string): Promise<string> {
     const metaMatch = html.match(/<meta itemprop="identifier" content="(UC[a-zA-Z0-9_-]{22})"/);
     if (metaMatch) return metaMatch[1];
     
-    // 2. Try JSON configuration search
+    // 2. Try JSON configuration search (ytInitialData)
     const jsonMatch = html.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
     if (jsonMatch) return jsonMatch[1];
 
-    // 3. Try browseId (Used in some internal YT JSON)
-    const browseMatch = html.match(/"browseId":"(UC[a-zA-Z0-9_-]{22})"/);
-    if (browseMatch) return browseMatch[1];
+    // 3. Try alternative canonical URL pattern
+    const canonicalMatch = html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]{22})"/);
+    if (canonicalMatch) return canonicalMatch[1];
 
+    // 4. Try externalId in scripts
+    const externalMatch = html.match(/"externalId":"(UC[a-zA-Z0-9_-]{22})"/);
+    if (externalMatch) return externalMatch[1];
+
+    console.warn(`Could not find UCID in HTML for ${url}. Fallback required.`);
   } catch (e: any) {
-    console.warn(`Could not resolve Channel ID for ${url}: ${e.message}`);
+    console.error(`YouTube ID Resolution Failed for ${url}: ${e.message}`);
   }
   
-  // Fallback to legacy behavior if all else fails
+  // Only fallback to legacy user param if NOT a modern handle
+  if (isHandle) return null;
+  
   return lastPart.replace('@', '');
 }
 
@@ -49,8 +59,8 @@ export async function fetchLatestVideosFromChannel(channelUrl: string) {
   try {
     const resolvedId = await resolveChannelId(channelUrl);
     
-    if (!resolvedId.startsWith('UC')) {
-        console.warn(`Using legacy fallback for ${channelUrl} - this may trigger a 404.`);
+    if (!resolvedId) {
+        throw new Error(`Could not resolve YouTube Channel ID for modern handle (${channelUrl}). Scraper was likely blocked or the identifier is missing.`);
     }
 
     const param = resolvedId.startsWith('UC') ? 'channel_id' : 'user';
