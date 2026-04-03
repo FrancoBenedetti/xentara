@@ -90,7 +90,7 @@ export default function SourceList({ hubId }: { hubId: string }) {
                       {source.url}
                     </div>
                   </div>
-                  <span style={{ color: 'var(--indigo)', fontSize: '0.6rem', fontWeight: 900, background: 'var(--indigo-soft)', padding: '0.15rem 0.4rem', borderRadius: '4px', textTransform: 'uppercase', ml: '0.5rem', border: '1px solid var(--indigo)' }}>
+                  <span style={{ color: 'var(--indigo)', fontSize: '0.6rem', fontWeight: 900, background: 'var(--indigo-soft)', padding: '0.15rem 0.4rem', borderRadius: '4px', textTransform: 'uppercase', marginLeft: '0.5rem', border: '1px solid var(--indigo)' }}>
                     {source.type}
                   </span>
                 </div>
