@@ -17,6 +17,19 @@ export interface Hub {
   brand_color?: string;
   logo_url?: string;
   strictness?: 'exploratory' | 'strict';
+  role?: 'owner' | 'editor' | 'viewer'; // User's role in this hub
+}
+
+export interface HubMember {
+  id: string;
+  hub_id: string;
+  user_id: string;
+  role: 'owner' | 'editor' | 'viewer';
+  profiles: {
+    email: string;
+    display_name: string;
+    avatar_url?: string;
+  };
 }
 
 export interface HubTag {
@@ -68,16 +81,105 @@ export async function createHub(formData: FormData) {
 export async function getHubs(): Promise<Hub[]> {
   try {
     const supabase = await createClient()
-    const { data: hubs, error } = await supabase
-      .from('hubs' as never)
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
 
-    if (error) return []
-    return (hubs as unknown as Hub[]) || []
-  } catch {
+    // Fetch hubs where the user is a member
+    const { data: memberships, error } = await supabase
+      .from('hub_memberships' as never)
+      .select('role, hubs (*)')
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Error fetching hubs via memberships:', error)
+      return []
+    }
+
+    return (memberships as any[]).map(m => ({
+      ...m.hubs,
+      role: m.role
+    })) || []
+  } catch (err) {
+    console.error('getHubs exception:', err)
     return []
   }
+}
+
+/**
+ * TEAM MANAGEMENT
+ */
+export async function getHubMembers(hubId: string): Promise<HubMember[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('hub_memberships' as never)
+    .select('*, profiles (email, display_name, avatar_url)')
+    .eq('hub_id', hubId)
+
+  if (error) {
+    console.error('Error fetching hub members:', error)
+    return []
+  }
+
+  return (data as unknown as HubMember[]) || []
+}
+
+export async function inviteMember(hubId: string, email: string, role: string) {
+  const supabase = await createClient()
+
+  // 1. Check if user already exists in profiles
+  const { data: profile } = await supabase
+    .from('profiles' as never)
+    .select('id')
+    .eq('email', email)
+    .single()
+
+  if (profile) {
+    // 2. Direct add if user exists
+    const { error } = await supabase
+      .from('hub_memberships' as never)
+      .insert({ hub_id: hubId, user_id: (profile as any).id, role } as never)
+    
+    if (error) throw new Error(error.message)
+  } else {
+    // 3. Create invitation if user doesn't exist
+    const { data: { user: inviter } } = await supabase.auth.getUser()
+    if (!inviter) throw new Error('Not authenticated')
+
+    const { error } = await supabase
+      .from('hub_invitations' as never)
+      .insert({ hub_id: hubId, email, role, invited_by: inviter.id } as never)
+    
+    if (error) throw new Error(error.message)
+  }
+
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
+
+export async function updateMemberRole(hubId: string, userId: string, role: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('hub_memberships' as never)
+    .update({ role } as never)
+    .eq('hub_id', hubId)
+    .eq('user_id', userId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
+
+export async function removeMember(hubId: string, userId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('hub_memberships' as never)
+    .delete()
+    .eq('hub_id', hubId)
+    .eq('user_id', userId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/settings')
+  return { success: true }
 }
 
 /**

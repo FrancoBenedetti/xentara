@@ -1,6 +1,7 @@
-import { getHubs } from '../actions'
+import { getHubs, Hub } from '../actions'
 import BrandingForm from '@/components/dashboard/BrandingForm'
 import TaxonomyManager from '@/components/dashboard/TaxonomyManager'
+import TeamManager from '@/components/dashboard/TeamManager'
 
 export default async function SettingsPage() {
   const hubs = await getHubs()
@@ -18,7 +19,7 @@ export default async function SettingsPage() {
             <p style={{ color: 'var(--text-muted)', fontWeight: 800 }}>No hubs found. Return to your dashboard to initialize one.</p>
           </div>
         ) : (
-          hubs.map(hub => (
+          hubs.map((hub: Hub) => (
             <div key={hub.id} style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: '1.5rem', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
                   <div>
@@ -30,7 +31,13 @@ export default async function SettingsPage() {
 
                <BrandingForm hub={hub} />
                
+               <div style={{ margin: '2rem 0', borderTop: '1px solid var(--border)' }} />
+
                <TaxonomyManager hubId={hub.id} initialStrictness={hub.strictness || 'exploratory'} />
+
+               <div style={{ margin: '2rem 0', borderTop: '1px solid var(--border)' }} />
+
+               <TeamManager hubId={hub.id} userRole={hub.role || 'viewer'} />
             </div>
           ))
         )}
