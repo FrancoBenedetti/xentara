@@ -297,7 +297,6 @@ export async function getRecentPublications(hubId: string): Promise<Publication[
     .from('publications')
     .select('*, monitored_sources(name)')
     .eq('hub_id', hubId)
-    .in('status', ['ready', 'published'])
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -314,7 +313,7 @@ export async function getPublicationHistory(hubId: string, page: number = 0): Pr
     .from('publications')
     .select('*, monitored_sources(name)')
     .eq('hub_id', hubId)
-    .eq('status', 'published')
+    .eq('is_published', true)
     .order('curator_published_at', { ascending: false })
     .range(from, to)
 
