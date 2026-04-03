@@ -8,7 +8,7 @@ import { createServiceClient } from '@/utils/supabase/service';
  * Now processes up to 10 new items per run.
  */
 export async function discoverRecentItems(source: any) {
-    let items = [];
+    let items: any[] = [];
     
     if (source.type === 'youtube') {
         items = await fetchLatestVideosFromChannel(source.url);
@@ -57,7 +57,7 @@ export async function discoverRecentItems(source: any) {
             await inngest.send({
                 name: "xentara/publication.detected",
                 data: { 
-                    publicationId: pub.id, 
+                    publicationId: (pub as any).id, 
                     sourceUrl: item.link, 
                     hubId: source.hub_id,
                     type: source.type 
