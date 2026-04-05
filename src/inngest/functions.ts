@@ -141,6 +141,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         summary: summary,
                         byline: analysis.byline,
                         sentiment_score: analysis.sentiment,
+                        tags: analysis.tags,
                         error_message: null,
                         status: 'ready'
                     })
