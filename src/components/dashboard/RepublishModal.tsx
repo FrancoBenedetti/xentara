@@ -3,6 +3,27 @@
 import { useState } from 'react'
 import { Publication, publishPublication } from '@/app/dashboard/actions'
 
+const SimpleMarkdown = ({ children }: { children: string }) => {
+  if (!children) return null;
+  // Naive markdown parser for preview
+  let html = children
+    .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.1rem; font-weight: 800; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.25rem; font-weight: 800; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.5rem; font-weight: 900; margin-top: 1rem; margin-bottom: 1rem;">$1</h1>')
+    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: var(--indigo); text-decoration: underline;">$1</a>')
+    .replace(/^\*(.+)/gm, '<li style="margin-left: 1.5rem; list-style-type: disc;">$1</li>')
+    .replace(/^-(.+)/gm, '<li style="margin-left: 1.5rem; list-style-type: disc;">$1</li>');
+
+  const paragraphs = html.split(/\n\n+/).map(p => {
+    if (p.trim().startsWith('<h') || p.trim().startsWith('<li') || p.trim().startsWith('<ul')) return p;
+    return `<p style="margin-bottom: 1rem;">${p.replace(/\n/g, '<br/>')}</p>`;
+  }).join('');
+
+  return <div style={{ color: 'var(--text-main)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }} dangerouslySetInnerHTML={{ __html: paragraphs }} />;
+}
+
 interface Props {
   publication: Publication;
   onClose: () => void;
@@ -10,6 +31,7 @@ interface Props {
 
 export default function RepublishModal({ publication, onClose }: Props) {
   const [loading, setLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'markdown' | 'html'>('markdown')
   const [formData, setFormData] = useState({
     title: publication.title,
     byline: publication.byline || '',
@@ -84,13 +106,55 @@ export default function RepublishModal({ publication, onClose }: Props) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Modern Markdown Summary</label>
-            <textarea 
-              value={formData.summary} 
-              onChange={e => setFormData({...formData, summary: e.target.value})}
-              rows={8}
-              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontFamily: 'monospace', lineHeight: 1.6 }}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Modern Markdown Summary</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('markdown')}
+                  style={{
+                    padding: '0.2rem 0.5rem',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    borderRadius: '4px',
+                    border: '1px solid ' + (viewMode === 'markdown' ? 'var(--indigo)' : 'var(--border)'),
+                    background: viewMode === 'markdown' ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                    color: viewMode === 'markdown' ? 'var(--indigo)' : 'var(--text-muted)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  EDIT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('html')}
+                  style={{
+                    padding: '0.2rem 0.5rem',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    borderRadius: '4px',
+                    border: '1px solid ' + (viewMode === 'html' ? 'var(--indigo)' : 'var(--border)'),
+                    background: viewMode === 'html' ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                    color: viewMode === 'html' ? 'var(--indigo)' : 'var(--text-muted)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  PREVIEW
+                </button>
+              </div>
+            </div>
+            {viewMode === 'markdown' ? (
+              <textarea 
+                value={formData.summary} 
+                onChange={e => setFormData({...formData, summary: e.target.value})}
+                rows={8}
+                style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontFamily: 'monospace', lineHeight: 1.6 }}
+              />
+            ) : (
+              <div className="markdown-preview" style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', lineHeight: 1.6, overflowY: 'auto', maxHeight: '400px' }}>
+                <SimpleMarkdown>{formData.summary}</SimpleMarkdown>
+              </div>
+            )}
           </div>
 
           <footer style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
