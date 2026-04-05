@@ -15,12 +15,22 @@
 }
 
 .sidebar {
-  width: 250px;
+  width: 260px;
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 1.75rem;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 50;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    display: none !important;
+  }
 }
 
 .sidebar h2 {
@@ -38,13 +48,34 @@
   flex: 1;
   padding: 3rem;
   overflow-y: auto;
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .mainContent {
+    padding: 2rem 1.5rem;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
+  }
+}
+
+@media (max-width: 640px) {
+  .mainContent {
+    padding: 1.5rem 1rem;
+  }
 }
 
 .hubGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.5rem;
   margin-top: 2rem;
+}
+
+@media (min-width: 1280px) {
+  .hubGrid {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 2rem;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -65,8 +96,14 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .hubCard {
+    padding: 1rem;
+    gap: 1rem;
+    border-radius: 1rem;
+  }
 }
 
 .hubCard:hover {
@@ -105,13 +142,22 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  padding: 1rem 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg-header);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 40;
+}
+
+@media (max-width: 1024px) {
+  .header {
+    padding: 1rem;
+    margin: -1.5rem -1rem 1.5rem -1rem;
+    border-radius: 0;
+  }
 }
 
 .formGroup {
@@ -143,17 +189,16 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
   padding-right: 0.5rem;
 }
 
-.feedScrollArea::-webkit-scrollbar {
-  width: 4px;
-}
-
-.feedScrollArea::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
+@media (max-width: 1024px) {
+  .feedScrollArea {
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 0;
+  }
 }
 
 .pageContainer {
@@ -210,6 +255,12 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .contentWrapper {
+    padding: 1rem 0;
+  }
 }
 
 .sectionArea {

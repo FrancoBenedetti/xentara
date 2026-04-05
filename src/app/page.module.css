@@ -28,8 +28,15 @@
   letter-spacing: -0.05em;
   background: linear-gradient(to right, #818cf8, #c084fc);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+  .title {
+    font-size: 3rem;
+  }
 }
 
 .subtitle {
@@ -53,6 +60,15 @@
   display: flex;
   gap: 1.5rem;
   margin-top: 2rem;
+}
+
+@media (max-width: 640px) {
+  .ctas {
+    flex-direction: column;
+    width: 100%;
+    max-width: 300px;
+    gap: 1rem;
+  }
 }
 
 .primary {
