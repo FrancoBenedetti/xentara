@@ -5,8 +5,47 @@ import { Publication, publishPublication } from '@/app/dashboard/actions'
 
 const SimpleMarkdown = ({ children }: { children: string }) => {
   if (!children) return null;
-  // Naive markdown parser for preview
-  let html = children
+
+  // Render markdown tables
+  let parsingTable = false;
+  let tableRows: string[] = [];
+  const lines = children.split('\n');
+  const processedLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isTableLine = line.trim().startsWith('|') && line.trim().endsWith('|');
+    
+    if (isTableLine) {
+      if (!parsingTable) parsingTable = true;
+      if (/^\|[-:| ]+\|$/.test(line.trim())) {
+        continue; // skip separator row
+      }
+      
+      const isHeader = tableRows.length === 0;
+      const cells = line.trim().slice(1, -1).split('|').map(c => c.trim());
+      const rowContent = cells.map(c => 
+        isHeader ? `<th style="padding: 0.5rem; border-bottom: 2px solid var(--border); text-align: left; background: rgba(99, 102, 241, 0.05);">${c}</th>`
+                 : `<td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${c}</td>`
+      ).join('');
+      
+      tableRows.push(`<tr>${rowContent}</tr>`);
+    } else {
+      if (parsingTable) {
+        processedLines.push(`<div style="overflow-x: auto; margin-bottom: 1rem;"><table style="width: 100%; border-collapse: collapse; border: 1px solid var(--border); font-size: 0.8rem;"><tbody>${tableRows.join('')}</tbody></table></div>`);
+        parsingTable = false;
+        tableRows = [];
+      }
+      processedLines.push(line);
+    }
+  }
+
+  if (parsingTable) {
+    processedLines.push(`<div style="overflow-x: auto; margin-bottom: 1rem;"><table style="width: 100%; border-collapse: collapse; border: 1px solid var(--border); font-size: 0.8rem;"><tbody>${tableRows.join('')}</tbody></table></div>`);
+  }
+
+  // Naive markdown parser for other elements
+  let html = processedLines.join('\n')
     .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.1rem; font-weight: 800; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>')
     .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.25rem; font-weight: 800; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h2>')
     .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.5rem; font-weight: 900; margin-top: 1rem; margin-bottom: 1rem;">$1</h1>')
@@ -17,7 +56,7 @@ const SimpleMarkdown = ({ children }: { children: string }) => {
     .replace(/^-(.+)/gm, '<li style="margin-left: 1.5rem; list-style-type: disc;">$1</li>');
 
   const paragraphs = html.split(/\n\n+/).map(p => {
-    if (p.trim().startsWith('<h') || p.trim().startsWith('<li') || p.trim().startsWith('<ul')) return p;
+    if (p.trim().startsWith('<h') || p.trim().startsWith('<li') || p.trim().startsWith('<ul') || p.trim().startsWith('<div')) return p;
     return `<p style="margin-bottom: 1rem;">${p.replace(/\n/g, '<br/>')}</p>`;
   }).join('');
 
