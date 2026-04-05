@@ -17,12 +17,17 @@ async function resolveChannelId(url: string): Promise<string | null> {
   try {
     const targetUrl = url.startsWith('http') ? url : `https://www.youtube.com/${url.startsWith('@') ? '' : '@'}${url}`;
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     const response = await fetch(targetUrl, {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9'
-        }
+        },
+        signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) throw new Error(`YouTube returned status ${response.status}`);
     

@@ -57,14 +57,17 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
     const { publicationId, sourceUrl, type } = event.data;
 
     try {
+        console.log(`[PIPELINE START] Processing Publication ID: ${publicationId} (URL: ${sourceUrl})`);
+        
         const supabase = createServiceClient();
         const { data: pub } = await (supabase.from('publications') as any).select('hub_id').eq('id', publicationId).single();
         if (!pub) throw new Error("Publication Context Lost");
 
         // 1. CONTENT INGESTION
+        console.log(`[PIPELINE] Fetching raw content for: ${sourceUrl}`);
         const rawData = await step.run("fetch-raw-content", async () => {
             const supabase = createServiceClient();
-            await (supabase.from('publications') as any).update({ status: 'transcribing' }).eq('id', publicationId);
+            await (supabase.from('publications') as any).update({ status: 'transcribing' }).eq('id', publicationId).throwOnError();
             return await ingestContent(sourceUrl, type || 'youtube');
         });
 
@@ -72,18 +75,21 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         const hasTranscript = rawData.metadata?.has_transcript || rawData.metadata?.sourceType === 'rss';
 
         if (hasTranscript) {
+            console.log(`[PIPELINE] Content FOUND. Starting Creative Agent (Summarization).`);
             // 2. CREATIVE AGENT: SUMMARIZATION
             const summary = await step.run("summarize-content", async () => {
                 const supabase = createServiceClient();
-                await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId);
+                await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId).throwOnError();
                 return await summarizeWithAI(transcript, rawData.title, rawData.metadata);
             });
 
+            console.log(`[PIPELINE] Summary RECEIVED. Starting Taste Predictor.`);
             // 3. TASTE PREDICTOR AGENT: taxonomy-aware analysis
             const analysis = await step.run("predict-taste-and-taxonomy", async () => {
                 return await predictTaste(summary, rawData.title, pub.hub_id);
             });
 
+            console.log(`[PIPELINE] Taste ANALYSIS complete. Saving taxonomy discoveries.`);
             // 4. TAXONOMY AGENT: Save Suggestions & Link Tags
             await step.run("save-taxonomy-discoveries", async () => {
                 const supabase = createServiceClient();
@@ -125,6 +131,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             });
 
             await step.run("finalize-publication", async () => {
+                console.log(`[PIPELINE] FINALIZING publication: ${publicationId}`);
                 const supabase = createServiceClient();
                 await (supabase
                     .from('publications') as any)
@@ -137,7 +144,8 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         error_message: null,
                         status: 'ready'
                     })
-                    .eq('id', publicationId);
+                    .eq('id', publicationId)
+                    .throwOnError();
             });
 
             return { status: "processed" };
@@ -146,7 +154,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         await (supabase.from('publications') as any).update({ 
             status: 'failed', 
             error_message: "Media ingestion returned no usable transcript or text."
-        }).eq('id', publicationId);
+        }).eq('id', publicationId).throwOnError();
 
         return { status: "no_transcript" };
     } catch (error: any) {
