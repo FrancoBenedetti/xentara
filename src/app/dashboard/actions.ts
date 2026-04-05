@@ -127,6 +127,11 @@ export async function getHubs(): Promise<Hub[]> {
   }
 }
 
+export async function getHubBySlug(slug: string): Promise<Hub | null> {
+  const hubs = await getHubs()
+  return hubs.find(h => h.slug === slug) || null
+}
+
 /**
  * TEAM MANAGEMENT
  */
@@ -292,12 +297,18 @@ export async function refreshSource(id: string, url: string, type: string) {
 /**
  * INTELLIGENCE & PUBLICATIONS
  */
-export async function getRecentPublications(hubId: string): Promise<Publication[]> {
+export async function getRecentPublications(hubId: string, sourceId?: string): Promise<Publication[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  let query = supabase
     .from('publications')
     .select('*, monitored_sources(name)')
     .eq('hub_id', hubId)
+    
+  if (sourceId) {
+    query = query.eq('source_id', sourceId)
+  }
+
+  const { data } = await query
     .order('created_at', { ascending: false })
     .limit(20)
 

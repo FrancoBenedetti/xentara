@@ -2,7 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Hub } from '@/app/dashboard/actions';
 import styles from '@/app/dashboard/dashboard.module.css';
+
+interface DashboardNavProps {
+  hubs: Hub[];
+}
 
 interface NavItemProps {
   href: string;
@@ -74,7 +79,7 @@ const MobileNavItem = ({ href, icon, label, disabled }: NavItemProps) => {
   );
 };
 
-export default function DashboardNav() {
+export default function DashboardNav({ hubs }: DashboardNavProps) {
   return (
     <>
       {/* Desktop Sidebar */}
@@ -93,6 +98,20 @@ export default function DashboardNav() {
             <DesktopNavItem href="/dashboard/settings" icon="⚙" label="Settings" />
           </ul>
         </nav>
+
+        <div style={{ marginTop: '2rem' }}>
+          <h3 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Your Collectives</h3>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {hubs.map((hub) => (
+              <DesktopNavItem 
+                key={hub.id} 
+                href={`/dashboard/hubs/${hub.slug}`} 
+                icon="⬢" 
+                label={hub.name} 
+              />
+            ))}
+          </ul>
+        </div>
 
         <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase 5: Manual curated</div>
