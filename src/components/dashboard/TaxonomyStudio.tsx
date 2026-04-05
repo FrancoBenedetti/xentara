@@ -113,8 +113,8 @@ export default function TaxonomyStudio({
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                          <button onClick={() => handleConfirm(tag.id)} className={styles.btnPrimary} style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}>CONFIRM</button>
-                         <button onClick={() => setIsMerging(tag.id)} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid var(--border)', padding: '0.4rem 0.8rem', fontSize: '0.7rem', borderRadius: '0.5rem', fontWeight: 800 }}>MERGE</button>
-                         <button onClick={() => handleDelete(tag.id)} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.4rem 0.8rem', fontSize: '0.7rem', borderRadius: '0.5rem', fontWeight: 800 }}>DELETE</button>
+                         <button onClick={() => setIsMerging(tag.id)} style={{ background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.8rem', fontSize: '0.7rem', borderRadius: '0.5rem', fontWeight: 800 }}>MERGE</button>
+                         <button onClick={() => handleDelete(tag.id)} style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--text-main)', border: '1px solid #ef4444', padding: '0.4rem 0.8rem', fontSize: '0.7rem', borderRadius: '0.5rem', fontWeight: 800 }}>DELETE</button>
                       </div>
                    </div>
 
@@ -157,7 +157,7 @@ export default function TaxonomyStudio({
                         <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{tag.description}</p>
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                         <button onClick={() => handleDelete(tag.id)} style={{ background: 'rgba(239, 68, 68, 0.05)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.1)', padding: '0.4rem 0.8rem', fontSize: '0.7rem', borderRadius: '0.5rem', fontWeight: 800 }}>DELETE</button>
+                         <button onClick={() => handleDelete(tag.id)} style={{ background: 'transparent', color: 'var(--text-main)', border: '1px solid #ef4444', padding: '0.4rem 0.8rem', fontSize: '0.7rem', borderRadius: '0.5rem', fontWeight: 800 }}>DELETE</button>
                       </div>
                    </div>
                 </div>

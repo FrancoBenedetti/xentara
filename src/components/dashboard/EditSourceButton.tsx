@@ -37,7 +37,7 @@ export default function EditSourceButton({ source }: { source: any }) {
       style={{
         background: 'rgba(96, 165, 250, 0.05)',
         border: '1px solid rgba(96, 165, 250, 0.2)',
-        color: '#60a5fa',
+        color: 'var(--indigo)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

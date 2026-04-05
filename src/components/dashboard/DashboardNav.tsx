@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Hub } from '@/app/dashboard/actions';
+import ThemeToggle from './ThemeToggle';
 import styles from '@/app/dashboard/dashboard.module.css';
 
 interface DashboardNavProps {
@@ -67,7 +68,7 @@ const MobileNavItem = ({ href, icon, label, disabled }: NavItemProps) => {
         gap: '0.25rem', 
         color: isActive ? 'var(--indigo)' : 'var(--text-muted)', 
         fontWeight: 800, 
-        fontSize: '0.6rem',
+        fontSize: '0.75rem',
         textDecoration: 'none',
         padding: '0.5rem',
         flex: 1
@@ -84,9 +85,12 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
     <>
       {/* Desktop Sidebar */}
       <aside className={styles.sidebar}>
-        <div style={{ marginBottom: '2.5rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '0.05em', margin: 0 }}>XENTARA</h2>
-          <p style={{ fontSize: '0.6rem', color: 'var(--indigo)', fontWeight: 800, marginTop: '0.25rem', letterSpacing: '0.1em' }}>AGGREGATOR V1.0</p>
+        <div style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '0.05em', margin: 0 }}>XENTARA</h2>
+            <p style={{ fontSize: '0.7rem', color: 'var(--indigo)', fontWeight: 800, marginTop: '0.25rem', letterSpacing: '0.1em' }}>AGGREGATOR V1.0</p>
+          </div>
+          <ThemeToggle />
         </div>
         
         <nav>
@@ -100,7 +104,7 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
         </nav>
 
         <div style={{ marginTop: '2rem' }}>
-          <h3 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Your Collectives</h3>
+          <h3 style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Your Collectives</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {hubs.map((hub) => (
               <DesktopNavItem 
@@ -114,7 +118,7 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
         </div>
 
         <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
-           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase 5: Manual curated</div>
+           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase 5: Manual curated</div>
         </div>
       </aside>
 
@@ -124,6 +128,9 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
         <MobileNavItem href="/dashboard/taxonomy" icon="✦" label="Taxonomy" />
         <MobileNavItem href="/dashboard/history" icon="◷" label="History" />
         <MobileNavItem href="/dashboard/settings" icon="⚙" label="Settings" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem', flex: 1 }}>
+          <ThemeToggle />
+        </div>
       </nav>
 
       <style jsx>{`

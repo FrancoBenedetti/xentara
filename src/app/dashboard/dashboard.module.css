@@ -1,17 +1,18 @@
+/* Using global theme variables from globals.css */
 :root {
-  --primary: #6366f1;
+  --primary: var(--indigo);
   --primary-hover: #4f46e5;
-  --sidebar-bg: #111827;
-  --card-bg: rgba(255, 255, 255, 0.05);
-  --border: rgba(255, 255, 255, 0.1);
-  --text-muted: #9ca3af;
+  --sidebar-bg: var(--bg-surface);
+  --card-bg: var(--bg-surface);
+  --border: var(--border);
+  --text-muted: var(--text-muted);
 }
 
 .dashboardLayout {
   display: flex;
   min-height: 100vh;
-  background-color: #030712;
-  color: white;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
 }
 
 .mobileBottomNav { 
@@ -20,7 +21,7 @@
 
 .sidebar {
   width: 260px;
-  background-color: var(--sidebar-bg);
+  background-color: var(--bg-surface);
   border-right: 1px solid var(--border);
   padding: 2.5rem 1.75rem;
   display: flex;
@@ -128,7 +129,7 @@
 
 .btnPrimary {
   background-color: var(--primary);
-  color: white;
+  color: #ffffff; /* Explicitly white for primary button */
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
   border: none;
@@ -177,10 +178,10 @@
 .input {
   width: 100%;
   padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
-  color: white;
+  color: var(--text-main);
   outline: none;
 }
 
@@ -231,7 +232,7 @@
 }
 
 .headerUser {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--indigo);
   font-weight: 700;
   text-transform: uppercase;
@@ -337,7 +338,7 @@
 }
 
 .hubCardRef {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--indigo);
   font-weight: 900;
   opacity: 0.5;
@@ -391,7 +392,7 @@
 }
 
 .feedTitle {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 900;
   color: var(--indigo);
   text-transform: uppercase;
@@ -407,7 +408,7 @@
 .feedMeta {
   display: flex;
   gap: 0.75rem;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 900;
 }
@@ -454,7 +455,7 @@
 }
 
 .pubCardSource {
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 900;
   text-transform: uppercase;
@@ -488,7 +489,7 @@
 }
 
 .pubCardInsightTitle {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 900;
   color: var(--indigo);
   margin-bottom: 0.5rem;
@@ -516,11 +517,11 @@
 }
 
 .pubCardTag {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--indigo);
   background: var(--indigo-soft);
   border: 1px solid var(--indigo);
-  padding: 0.1rem 0.4rem;
+  padding: 0.15rem 0.4rem;
   border-radius: 4px;
   font-weight: 900;
 }
@@ -548,7 +549,7 @@
 }
 
 .pubCardLink {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   text-decoration: none;
   font-weight: 900;
@@ -699,7 +700,7 @@
 .hubSummaryBadge {
   background: var(--indigo-soft);
   color: var(--indigo);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 900;
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
@@ -712,7 +713,7 @@
 }
 
 .hubSummaryPulseTitle {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 900;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -755,7 +756,7 @@
 }
 
 .hubSummaryItemMeta {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: 800;
   text-transform: uppercase;

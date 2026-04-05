@@ -131,7 +131,7 @@ export default function TaxonomyManager({ hubId, initialStrictness }: { hubId: s
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.3rem' }}>
                     <span style={{ fontWeight: 900, fontSize: '0.9rem', color: 'var(--text-main)' }}>#{tag.name.toUpperCase()}</span>
                     {!tag.is_confirmed && (
-                      <span style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: '0.5rem', fontWeight: 900, padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #ef4444' }}>UNCONFIRMED AI DRAFT</span>
+                      <span style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--text-main)', fontSize: '0.65rem', fontWeight: 900, padding: '0.15rem 0.5rem', borderRadius: '4px', border: '1px solid #ef4444' }}>UNCONFIRMED AI DRAFT</span>
                     )}
                   </div>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.5 }}>{tag.description}</p>
@@ -139,10 +139,10 @@ export default function TaxonomyManager({ hubId, initialStrictness }: { hubId: s
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {!tag.is_confirmed ? (
-                    <button onClick={() => handleConfirm(tag.id)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '0.4rem', fontSize: '0.6rem', fontWeight: 900, cursor: 'pointer' }}>APPROVE</button>
+                    <button onClick={() => handleConfirm(tag.id)} style={{ background: '#059669', color: '#ffffff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '0.4rem', fontSize: '0.7rem', fontWeight: 900, cursor: 'pointer' }}>APPROVE</button>
                   ) : null}
-                  <button onClick={() => handleEditInit(tag)} style={{ background: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '0.3rem 0.8rem', borderRadius: '0.4rem', fontSize: '0.6rem', fontWeight: 900, cursor: 'pointer' }}>EDIT</button>
-                  <button onClick={() => handleRemove(tag.id)} style={{ background: 'transparent', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.1)', padding: '0.3rem 0.8rem', borderRadius: '0.4rem', fontSize: '0.6rem', fontWeight: 900, cursor: 'pointer' }}>PURGE</button>
+                  <button onClick={() => handleEditInit(tag)} style={{ background: 'var(--bg-input)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.8rem', borderRadius: '0.4rem', fontSize: '0.7rem', fontWeight: 900, cursor: 'pointer' }}>EDIT</button>
+                  <button onClick={() => handleRemove(tag.id)} style={{ background: 'transparent', color: 'var(--text-main)', border: '1px solid #ef4444', padding: '0.4rem 0.8rem', borderRadius: '0.4rem', fontSize: '0.7rem', fontWeight: 900, cursor: 'pointer' }}>PURGE</button>
                 </div>
               </div>
             )}

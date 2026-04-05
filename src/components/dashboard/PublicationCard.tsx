@@ -12,19 +12,19 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
   const isProcessing = ['raw', 'transcribing', 'summarizing'].includes(pub.status)
 
   const getStatusBadge = (status: string) => {
-    const commonStyles = { padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.55rem', fontWeight: 900, border: '1px solid currentColor' }
+    const commonStyles = { padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 900, border: '1px solid currentColor' }
     switch (status) {
       case 'published':
         return <span style={{ ...commonStyles, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--indigo)' }}>PUBLISHED</span>
       case 'ready':
-        return <span style={{ ...commonStyles, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>READY</span>
+        return <span style={{ ...commonStyles, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--text-main)', borderColor: '#10b981' }}>READY</span>
       case 'failed':
-        return <span style={{ ...commonStyles, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>FAILED</span>
+        return <span style={{ ...commonStyles, background: 'rgba(239, 68, 68, 0.1)', color: 'var(--text-main)', borderColor: '#ef4444' }}>FAILED</span>
       case 'raw':
       case 'transcribing':
       case 'summarizing':
         const statusLabel = status === 'transcribing' ? 'TRANSCRIBING...' : status === 'summarizing' ? 'SUMMARIZING...' : 'AI IS WORKING...';
-        return <span style={{ ...commonStyles, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', animation: 'pulse 2s infinite' }}>{statusLabel}</span>
+        return <span style={{ ...commonStyles, background: 'rgba(245, 158, 11, 0.1)', color: 'var(--text-main)', borderColor: '#f59e0b', animation: 'pulse 2s infinite' }}>{statusLabel}</span>
       default:
         return <span style={{ ...commonStyles, background: 'rgba(156, 163, 175, 0.1)', color: 'var(--text-muted)' }}>{status?.toUpperCase() || 'UNKNOWN'}</span>
     }
@@ -58,8 +58,8 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
 
       {pub.status === 'failed' && pub.error_message && (
         <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: '0.5rem', marginTop: '0.5rem', marginBottom: '1rem' }}>
-          <p style={{ margin: 0, color: '#ef4444', fontSize: '0.7rem', fontWeight: 800 }}>NEURAL FAULT:</p>
-          <p style={{ margin: 0, color: '#fca5a5', fontSize: '0.65rem', fontWeight: 600 }}>{pub.error_message}</p>
+          <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '0.75rem', fontWeight: 800 }}>NEURAL FAULT:</p>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{pub.error_message}</p>
         </div>
       )}
 
@@ -95,7 +95,7 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
              {pub.status === 'ready' && !isProcessing && (
                <button 
                 onClick={() => setShowModal(true)}
-                style={{ padding: '0.3rem 0.75rem', background: 'var(--indigo)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.3)' }}
+                style={{ padding: '0.4rem 0.8rem', background: 'var(--indigo)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.3)' }}
                >
                  PUBLISH
                </button>
