@@ -4,11 +4,14 @@ import { createClient } from '@/utils/supabase/server'
  * AI Engine to summarize transcripts with various providers.
  */
 export async function summarizeWithAI(transcript: string, title: string, metadata: any) {
+  let lastError: Error | null = null;
+
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     try {
       return await summarizeGemini(transcript, title);
     } catch (e: any) {
       console.warn("Gemini AI failed, falling back to Inception/Local...", e.message);
+      lastError = e;
     }
   }
 
@@ -17,13 +20,18 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
       return await summarizeInception(transcript, title);
     } catch (e: any) {
       console.warn("Inception Labs failed, falling back...", e.message);
+      lastError = e;
     }
   }
 
-  // Fallback: Return truncated original if AI is unavailable or fails
+  if (lastError && (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.INCEPTION_API_KEY)) {
+      throw new Error(`AI Summarization Failed: ${lastError.message}`);
+  }
+
+  // Fallback: Return truncated original if no API keys are set
   console.info("Using local fallback summarization strategy (truncation).");
   const baseContent = transcript || "No usable text was found in the source.";
-  return baseContent.substring(0, 1000) + "... [Note: AI Neural Link was unavailable, showing raw excerpt]";
+  return baseContent.substring(0, 1000) + "... [Note: AI Neural Link was unconfigured, showing raw excerpt]";
 }
 
 async function summarizeGemini(transcript: string, title: string) {
@@ -108,11 +116,14 @@ export async function predictTaste(summary: string | null | undefined, title: st
     return { byline: "No content to analyze.", sentiment: 0, tags: [] };
   }
 
+  let lastError: Error | null = null;
+
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     try {
         return await predictTasteGemini(summary, title, hubId);
     } catch (e: any) {
         console.warn("Gemini Taste Prediction failed, falling back to Inception...", e.message);
+        lastError = e;
     }
   }
 
@@ -188,7 +199,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') throw new Error("Inception API Taste: Request timed out (30s).");
-    return { byline: "Sync complete.", sentiment: 0.5, tags: ["ready"] };
+    throw error;
   }
 }
 async function predictTasteGemini(summary: string, title: string, hubId: string): Promise<TasteAnalysis> {
