@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+packages/*/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -16,6 +17,9 @@
 # next.js
 /.next/
 /out/
+# All workspace packages
+packages/*/.next/
+packages/*/out/
 
 # production
 /build
