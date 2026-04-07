@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Publication } from '@xentara/api-client'
+import Markdown from './Markdown'
 
 function getSentimentColor(score: number | null | undefined) {
   if (score == null) return 'var(--text-subtle)'
@@ -78,9 +79,10 @@ export default function FeedCard({ pub }: { pub: Publication }) {
 
             <div className="detail-section">
               <label className="detail-label">AI Compilation</label>
-              <div className="detail-summary">
-                {pub.summary || "Summary pending analysis..."}
-              </div>
+              <Markdown 
+                content={pub.summary || "Summary pending analysis..."} 
+                className="detail-summary"
+              />
             </div>
 
             {pub.curator_commentary && (
