@@ -2,22 +2,29 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
 export default async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith('/api/inngest')) {
+  const { pathname } = request.nextUrl
+
+  // 1. Explicitly bypass public API routes and internal assets
+  if (
+    pathname.startsWith('/api/inngest') ||
+    pathname.startsWith('/api/v1') ||
+    pathname.startsWith('/_next') ||
+    pathname === '/favicon.ico'
+  ) {
     return NextResponse.next()
   }
+
+  // 2. Run session management for all other routes
   return await updateSession(request)
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * - api/inngest        (Inngest webhook — no session needed)
-     * - api/v1/*           (Public Headless Hub API — uses service role key)
-     * - _next/static       (static assets)
-     * - _next/image        (image optimisation)
-     * - favicon.ico / image extensions
+     * Match all routes except files (assets with extensions)
+     * This ensures the proxy runs for all pages but doesn't block API routing
      */
-    '/((?!api/inngest|api/v1|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!.*\\..*$).*)',
+    '/api/v1/:path*',
   ],
 }
