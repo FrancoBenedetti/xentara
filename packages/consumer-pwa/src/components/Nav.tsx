@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
 export default function Nav() {
   const [user, setUser] = useState<User | null>(null)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
@@ -20,6 +22,7 @@ export default function Nav() {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    router.refresh()
   }
 
   return (
@@ -29,9 +32,12 @@ export default function Nav() {
         <div className="nav-actions">
           {user ? (
             <>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                {user.email}
-              </span>
+              <Link href="/subscriptions" className="nav-link">
+                My Hubs
+              </Link>
+              <Link href="/profile" className="nav-link">
+                Profile
+              </Link>
               <button onClick={handleSignOut} className="btn btn-danger">
                 Sign Out
               </button>

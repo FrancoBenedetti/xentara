@@ -100,8 +100,8 @@ V2 introduces a core architectural toggle per Hub:
 - [x] Phase 3: Taxonomy Confirmation Workflow (Human-in-the-loop)
 - [x] Phase 4: Hub RBAC & Team Management (Editors/Maintainers)
 - [x] Phase 5: Publication History & Manual Republication System
-- [ ] Phase 6: Minimal Consumer PWA (API Validation & Product Discovery Shell)
-- [ ] Phase 7: Consumer Identity & Linking (PWA <-> Messengers)
+- [x] Phase 6: Minimal Consumer PWA (API Validation & Product Discovery Shell)
+- [x] Phase 7: Consumer Identity & Linking (PWA <-> Messengers)
 - [ ] Phase 8: Selective Push Implementation (WhatsApp/Telegram Webhooks)
 - [ ] Phase 9: Engagement Feedback Engine (Reactions & Responses)
 - [ ] Phase 10: Xentara Client PWA Template (Dev-First Model + Feed Rhythms)

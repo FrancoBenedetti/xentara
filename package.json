@@ -9,7 +9,7 @@
     "lint": "eslint",
     "inngest": "npx inngest-cli@latest dev -u http://127.0.0.1:3000/api/inngest",
     "dev:pwa": "pnpm --filter @xentara/consumer-pwa dev",
-    "dev:all": "pnpm --filter . dev & pnpm --filter @xentara/consumer-pwa dev"
+    "dev:all": "next dev -p 3000 & pnpm --filter @xentara/consumer-pwa dev"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",

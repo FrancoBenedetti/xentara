@@ -6,8 +6,12 @@
  *
  * @example
  * import { getPublicHubs, getPublishedFeed } from '@xentara/api-client'
+ * import { subscribeToHub, getMyProfile } from '@xentara/api-client'
  */
 
 export * from './types';
 export * from './hubs';
 export * from './feed';
+export * from './consumers';
+export * from './subscriptions';
+export * from './identity';

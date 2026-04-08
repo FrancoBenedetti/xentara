@@ -132,6 +132,27 @@ export async function getHubBySlug(slug: string): Promise<Hub | null> {
   return hubs.find(h => h.slug === slug) || null
 }
 
+export async function getHubSubscriberCount(hubId: string): Promise<number> {
+  try {
+    const { createAdminClient } = await import('@/utils/supabase/admin')
+    const admin = createAdminClient()
+    const { count, error } = await admin
+      .from('hub_subscriptions' as never)
+      .select('*', { count: 'exact', head: true })
+      .eq('hub_id', hubId)
+
+    if (error) {
+      console.error('Error fetching subscriber count:', error)
+      return 0
+    }
+    return count ?? 0
+  } catch (err) {
+    console.error('getHubSubscriberCount exception:', err)
+    return 0
+  }
+}
+
+
 /**
  * TEAM MANAGEMENT
  */

@@ -39,3 +39,38 @@ export interface ApiError {
   error: string;
   status: number;
 }
+
+// ── Phase 7: Consumer Identity & Linking ──
+
+export interface ConsumerProfile {
+  id: string;
+  display_alias?: string;
+  avatar_hash?: string;
+  is_anonymous: boolean;
+  preferences: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface HubSubscription {
+  id: string;
+  hub_id: string;
+  hub?: Hub;
+  notification_preference: 'all' | 'highlights' | 'none';
+  subscribed_at: string;
+}
+
+export interface MessengerIdentity {
+  id: string;
+  platform: 'telegram' | 'whatsapp';
+  platform_username?: string;
+  is_verified: boolean;
+  linked_at?: string;
+  created_at?: string;
+}
+
+export interface LinkTokenResponse {
+  token: string;
+  expires_at: string;
+  platform: 'telegram' | 'whatsapp';
+}

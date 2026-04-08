@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Hub } from '@/app/dashboard/actions';
 import ThemeToggle from './ThemeToggle';
 import styles from '@/app/dashboard/dashboard.module.css';
+import { createClient } from '@/utils/supabase/client';
 
 interface DashboardNavProps {
   hubs: Hub[];
@@ -81,6 +82,15 @@ const MobileNavItem = ({ href, icon, label, disabled }: NavItemProps) => {
 };
 
 export default function DashboardNav({ hubs }: DashboardNavProps) {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.refresh();
+    router.push('/login');
+  };
+
   return (
     <>
       {/* Desktop Sidebar */}
@@ -117,17 +127,53 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
           </ul>
         </div>
 
-        <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
-           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Phase 5: Manual curated</div>
+        <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
+           <button 
+             onClick={handleSignOut}
+             style={{ 
+               background: 'none', 
+               border: 'none', 
+               color: 'var(--text-muted)', 
+               fontSize: '0.75rem', 
+               fontWeight: 800, 
+               textTransform: 'uppercase', 
+               letterSpacing: '0.1em',
+               cursor: 'pointer',
+               display: 'flex',
+               alignItems: 'center',
+               gap: '0.5rem',
+               padding: '0.5rem 0'
+             }}
+           >
+             <span>⇠</span> Logout
+           </button>
+           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', opacity: 0.5, marginTop: '0.5rem', fontWeight: 700 }}>VER V1.0 - CURATED</div>
         </div>
       </aside>
 
       {/* Mobile Bottom Bar */}
       <nav className={styles.mobileBottomNav}>
         <MobileNavItem href="/dashboard" icon="⬢" label="Hubs" />
-        <MobileNavItem href="/dashboard/taxonomy" icon="✦" label="Taxonomy" />
-        <MobileNavItem href="/dashboard/history" icon="◷" label="History" />
         <MobileNavItem href="/dashboard/settings" icon="⚙" label="Settings" />
+        <div 
+          onClick={handleSignOut}
+          style={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: '0.25rem', 
+            color: 'var(--text-muted)', 
+            fontWeight: 800, 
+            fontSize: '0.75rem',
+            padding: '0.5rem',
+            flex: 1,
+            cursor: 'pointer'
+          }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>⇠</span> 
+          <span>LOGOUT</span>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem', flex: 1 }}>
           <ThemeToggle />
         </div>
