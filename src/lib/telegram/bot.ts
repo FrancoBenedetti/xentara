@@ -181,6 +181,14 @@ bot.command('myhubs', async (ctx) => {
   }
 });
 
+// /chatid - Helper to get the ID of the current chat (especially for groups)
+bot.command('chatid', async (ctx) => {
+  const chatId = ctx.chat.id;
+  const chatType = ctx.chat.type;
+  await ctx.reply(`🆔 <b>Chat Info</b>\n\n<b>Type:</b> ${chatType}\n<b>Target ID:</b> <code>${chatId}</code>\n\n<i>Copy this ID and add it to your Hub Distribution settings.</i>`, { parse_mode: 'HTML' });
+});
+
+
 // Error handler
 bot.catch((err) => {
   console.error(`Error while handling update ${err.ctx.update.update_id}:`);

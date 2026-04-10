@@ -13,3 +13,17 @@ t=2026-04-10T13:53:32+0200 lvl=info msg="join connections" obj=join id=f0c7d50bc
 t=2026-04-10T13:55:31+0200 lvl=info msg="join connections" obj=join id=93474c8f8c84 l=127.0.0.1:3000 r=91.108.5.138:34624
 t=2026-04-10T14:00:19+0200 lvl=info msg="join connections" obj=join id=1f691bbef5cd l=127.0.0.1:3000 r=91.108.5.138:20966
 t=2026-04-10T15:24:00+0200 lvl=info msg="join connections" obj=join id=e804681e005b l=127.0.0.1:3000 r=91.108.5.138:30018
+t=2026-04-10T15:36:46+0200 lvl=info msg="join connections" obj=join id=6f5ea806cf8a l=127.0.0.1:3000 r=91.108.5.138:22820
+t=2026-04-10T15:41:47+0200 lvl=info msg="join connections" obj=join id=21032916d2e2 l=127.0.0.1:3000 r=91.108.5.138:26652
+t=2026-04-10T16:05:03+0200 lvl=info msg=start pg=/grpc/agent.Web/Clear id=94edd56908b7cbcf
+t=2026-04-10T16:05:03+0200 lvl=info msg=end pg=/grpc/agent.Web/Clear id=94edd56908b7cbcf status=200 dur=692.688µs
+t=2026-04-10T16:08:47+0200 lvl=info msg="join connections" obj=join id=4f013da9a501 l=127.0.0.1:3000 r=91.108.5.138:29442
+t=2026-04-10T16:13:35+0200 lvl=info msg="join connections" obj=join id=c4e214e4af26 l=127.0.0.1:3000 r=91.108.5.138:46970
+t=2026-04-10T16:23:25+0200 lvl=info msg="join connections" obj=join id=9c734a7694f2 l=127.0.0.1:3000 r=91.108.5.138:59260
+t=2026-04-10T16:25:58+0200 lvl=info msg="join connections" obj=join id=93bcd4548016 l=127.0.0.1:3000 r=91.108.5.138:30806
+t=2026-04-10T16:27:38+0200 lvl=info msg="join connections" obj=join id=13bcbc08ba72 l=127.0.0.1:3000 r=91.108.5.138:45830
+t=2026-04-10T16:31:13+0200 lvl=info msg="join connections" obj=join id=0911d9ff4efb l=127.0.0.1:3000 r=91.108.5.138:45384
+t=2026-04-10T16:40:35+0200 lvl=info msg="join connections" obj=join id=f0f80f7bc4ab l=127.0.0.1:3000 r=91.108.5.138:48528
+t=2026-04-10T16:42:06+0200 lvl=info msg="join connections" obj=join id=ed4a79afa22a l=127.0.0.1:3000 r=91.108.5.138:46016
+t=2026-04-10T16:43:31+0200 lvl=info msg="join connections" obj=join id=369f355dd9ad l=127.0.0.1:3000 r=91.108.5.138:53762
+t=2026-04-10T16:43:44+0200 lvl=info msg="join connections" obj=join id=095ac9c982e6 l=127.0.0.1:3000 r=91.108.5.138:53762
