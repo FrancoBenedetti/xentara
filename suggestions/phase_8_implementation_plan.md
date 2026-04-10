@@ -14,16 +14,16 @@ This phase introduces the **Distribution & Notification Agent** — the system t
 
 ## Current State (Post-Phase 7)
 
-| Layer | Status |
-|:---|:---|
+| Layer                 | Status                                                                                   |
+|:--------------------- |:---------------------------------------------------------------------------------------- |
 | **Consumer Identity** | ✅ `consumer_profiles`, `hub_subscriptions`, `messenger_identities`, `link_tokens` tables |
-| **Identity API** | ✅ Link token generation, manual claim endpoint, identity management |
-| **Hub Subscriptions** | ✅ Subscribe/unsubscribe via API, subscriber count (anonymized) |
-| **PWA Auth** | ✅ Cross-origin Bearer token auth, profile/subscriptions/link pages |
-| **Inngest Pipeline** | ✅ Discovery → Ingestion → Summary → Taste → Taxonomy → Normalization |
-| **Distribution** | ❌ No push delivery — publications only visible via PWA feed |
-| **Messenger Bots** | ❌ No bots — link codes can only be claimed via manual admin endpoint |
-| **Formatting** | ❌ No messenger-specific content formatting |
+| **Identity API**      | ✅ Link token generation, manual claim endpoint, identity management                      |
+| **Hub Subscriptions** | ✅ Subscribe/unsubscribe via API, subscriber count (anonymized)                           |
+| **PWA Auth**          | ✅ Cross-origin Bearer token auth, profile/subscriptions/link pages                       |
+| **Inngest Pipeline**  | ✅ Discovery → Ingestion → Summary → Taste → Taxonomy → Normalization                     |
+| **Distribution**      | ❌ No push delivery — publications only visible via PWA feed                              |
+| **Messenger Bots**    | ❌ No bots — link codes can only be claimed via manual admin endpoint                     |
+| **Formatting**        | ❌ No messenger-specific content formatting                                               |
 
 ---
 
@@ -88,6 +88,7 @@ CREATE TABLE public.distribution_log (
 #### Technology Choice: **grammY** (`grammy` npm package)
 
 grammY is the modern, TypeScript-native Telegram Bot framework. It offers:
+
 - Full type safety
 - Built-in webhook support (no polling needed in production)
 - Middleware architecture (similar to Express/Koa)
@@ -180,6 +181,7 @@ export function formatPublicationForTelegram(publication: Publication, hub: Hub)
 #### Technology: **WhatsApp Business Cloud API** (Meta Graph API v21.0+)
 
 The WhatsApp integration uses the official Cloud API hosted by Meta. This requires:
+
 - A Meta Business Account
 - A phone number registered with WhatsApp Business
 - Webhook verification via the Graph API
@@ -436,16 +438,19 @@ Add the new function to the serve array.
 Add a new "Distribution" tab or section to the hub settings page:
 
 1. **Connected Channels**
+   
    - List of configured Telegram channels/groups and WhatsApp targets
    - Add/remove controls
    - Active/inactive toggle per channel
    - "Test Push" button (sends a test message to verify connectivity)
 
 2. **Distribution Preferences**
+   
    - Toggle: "Auto-push on publish" (default: on)
    - Notification filter: Push all publications or only "highlights" (high sentiment / with curator commentary)
 
 3. **Distribution History**
+   
    - Recent push log showing status (sent/failed/rate_limited)
    - Per-publication view: which channels/subscribers received it
    - Error details for failed deliveries
@@ -553,62 +558,38 @@ sequenceDiagram
 
 The "selective" in "Selective Push" refers to the notification filtering system:
 
-| Subscriber Setting | Publication Type | Action |
-|:---|:---|:---|
-| `notification_preference: 'all'` | Any published item | ✅ Push immediately |
-| `notification_preference: 'highlights'` | Has `curator_commentary` OR `sentiment_score >= 0.7` | ✅ Push |
-| `notification_preference: 'highlights'` | Standard publication without commentary | ❌ Skip (available in PWA feed only) |
-| `notification_preference: 'none'` | Any | ❌ Never push (PWA feed only) |
+| Subscriber Setting                      | Publication Type                                     | Action                              |
+|:--------------------------------------- |:---------------------------------------------------- |:----------------------------------- |
+| `notification_preference: 'all'`        | Any published item                                   | ✅ Push immediately                  |
+| `notification_preference: 'highlights'` | Has `curator_commentary` OR `sentiment_score >= 0.7` | ✅ Push                              |
+| `notification_preference: 'highlights'` | Standard publication without commentary              | ❌ Skip (available in PWA feed only) |
+| `notification_preference: 'none'`       | Any                                                  | ❌ Never push (PWA feed only)        |
 
 Channel broadcasts (to Telegram groups/channels) **always receive all publications** regardless of subscriber settings. The selective filtering only applies to individual DMs.
 
 ---
 
-## Open Questions
+## Decisions
 
-> [!IMPORTANT]
-> ### Q1: Bot Hosting — Webhook vs. Long Polling?
-> The plan proposes **webhook mode** (Telegram sends updates to our API route). This is production-ready and works with Vercel serverless functions. The alternative is **long polling** (bot continuously polls Telegram), which requires a persistent process.
->
-> **Recommendation**: Webhook mode. It integrates naturally with Next.js API routes, requires no additional infrastructure, and is the Telegram-recommended approach for production bots.
+> [!NOTE]
+> ### 1. Bot Hosting: Webhook Mode
+> **Decision**: Webhook mode. It integrates naturally with Next.js API routes, requires no additional infrastructure, and is the Telegram-recommended approach for production bots.
 
-> [!IMPORTANT]
-> ### Q2: WhatsApp Tier — Cloud API vs. On-Premises vs. Defer?
-> WhatsApp integration options:
-> - **(A) Cloud API** (Meta-hosted) — Simplest setup, free for first 1,000 conversations/month, requires Meta Business verification
-> - **(B) On-Premises API** — Self-hosted, more control, significant infrastructure overhead
-> - **(C) Defer WhatsApp** — Build Telegram first, add WhatsApp in a later sub-phase
->
-> **Recommendation**: Option C — build Telegram bot first to validate the distribution architecture, then layer WhatsApp on top. The API abstraction layer will make WhatsApp a drop-in addition. This avoids Meta Business verification delays blocking Phase 8 progress.
+> [!NOTE]
+> ### 2. WhatsApp Tier: Defer for now
+> **Decision**: Option C — build Telegram bot first to validate the distribution architecture, then layer WhatsApp on top. The API abstraction layer will make WhatsApp a drop-in addition. This avoids Meta Business verification delays blocking Phase 8 progress.
 
-> [!IMPORTANT]
-> ### Q3: Distribution Model — Channel-First or Subscriber-First?
-> Should we prioritize:
-> - **(A) Channel broadcasts** — Push to Telegram channels/groups that the hub curator manages. Consumers join the channel directly on Telegram. Simpler, more scalable.
-> - **(B) Subscriber DMs** — Push directly to individual subscribers' Telegram DMs based on their hub_subscriptions. More personalized, but rate-limit sensitive.
-> - **(C) Both** — Channel broadcasts + optional subscriber DMs for users with linked identities
->
-> **Recommendation**: Option A first (channel broadcasts), with Option C as the full implementation. Channel broadcasts are the primary use case for "Intelligence Streams" — they're the Telegram equivalent of a newsletter. Subscriber DMs can be added once the channel infrastructure is proven.
+> [!NOTE]
+> ### 3. Distribution Model: Channel-First, DMs later
+> **Decision**: Option A first (channel broadcasts), with eventual expansion to Option C (both). Channel broadcasts are the primary use case for "Intelligence Streams". Subscriber DMs will be added once the channel infrastructure is proven.
 
-> [!IMPORTANT]
-> ### Q4: Formatting — AI-Assisted or Template-Based?
-> The architecture mentions "AI-Assisted Plain Text Formatting." Should we:
-> - **(A) Use AI** (Mercury-2 / Gemini Flash) to reformat each publication for messenger delivery — more natural language, but adds latency and cost
-> - **(B) Use templates** — Deterministic formatters that structure the existing summary/title/byline into a messenger-friendly layout
-> - **(C) Hybrid** — Templates for structure, AI for optional "TL;DR" or "key takeaway" line
->
-> **Recommendation**: Option B for Phase 8, graduating to Option C later. Templates are fast, free, and predictable. The summaries are already AI-generated by the Creative Agent — reformatting them with more AI adds unnecessary cost. The Format Orchestrator (Agent 9) can be introduced in a later phase.
+> [!NOTE]
+> ### 4. Formatting: Template-Based
+> **Decision**: Option B for Phase 8, graduating to Option C later. Templates are fast and free. AI assistance will be extended during the *initial ingest* in future phases to identify suitable images to be included in media such as Telegram that allows for them.
 
-> [!IMPORTANT]
-> ### Q5: Rate Limiting Strategy?
-> Telegram has rate limits (~30 messages/second to different chats, ~20 messages/minute to the same group). WhatsApp has conversation-based billing.
->
-> Should we implement:
-> - **(A) Simple sequential with delays** — Process one message at a time with 50ms delays
-> - **(B) Batch queue** — Group messages into batches and process with Inngest's built-in concurrency controls
-> - **(C) Priority queue** — Channel broadcasts first (higher priority), subscriber DMs second (lower priority, throttled)
->
-> **Recommendation**: Option C. Inngest already provides concurrency controls and step-based retries. Channel broadcasts should have higher priority since they affect all channel members. Subscriber DMs can be dispatched in a separate Inngest step with lower concurrency limits.
+> [!NOTE]
+> ### 5. Rate Limiting Strategy: Priority Queue
+> **Decision**: Option C. Inngest provides concurrency controls. Channel broadcasts have higher priority since they affect all channel members. Subscriber DMs will be dispatched in a separate Inngest step with lower concurrency limits.
 
 ---
 
@@ -659,18 +640,18 @@ Channel broadcasts (to Telegram groups/channels) **always receive all publicatio
 
 ## Execution Order (Suggested)
 
-| Step | Component | Estimated Effort |
-|:---|:---|:---|
-| 1 | Database migration (hub_channels, distribution_log) | Small |
-| 2 | Telegram bot core + webhook handler | Medium |
-| 3 | Publication formatter (Telegram) | Small |
-| 4 | Distribution Agent (Inngest function) | Medium |
-| 5 | Modify `publishPublication()` to emit event | Small |
-| 6 | Hub channel management API routes | Small |
-| 7 | Dashboard: Channel configuration UI | Medium |
-| 8 | Dashboard: Distribution history panel | Small |
-| 9 | Bot identity linking (`/link` command) | Small |
-| 10 | Subscriber DM push (optional, post-channel broadcast) | Medium |
-| 11 | WhatsApp integration (deferred if Q2 = Option C) | Large |
+| Step | Component                                             | Estimated Effort |
+|:---- |:----------------------------------------------------- |:---------------- |
+| 1    | Database migration (hub_channels, distribution_log)   | Small            |
+| 2    | Telegram bot core + webhook handler                   | Medium           |
+| 3    | Publication formatter (Telegram)                      | Small            |
+| 4    | Distribution Agent (Inngest function)                 | Medium           |
+| 5    | Modify `publishPublication()` to emit event           | Small            |
+| 6    | Hub channel management API routes                     | Small            |
+| 7    | Dashboard: Channel configuration UI                   | Medium           |
+| 8    | Dashboard: Distribution history panel                 | Small            |
+| 9    | Bot identity linking (`/link` command)                | Small            |
+| 10   | Subscriber DM push (optional, post-channel broadcast) | Medium           |
+| 11   | WhatsApp integration (deferred if Q2 = Option C)      | Large            |
 
 **Total estimated scope**: ~2–3 development sessions for core (steps 1–8), +1 for subscriber DMs, +1 for WhatsApp.

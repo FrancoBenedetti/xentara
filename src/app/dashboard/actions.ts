@@ -376,6 +376,24 @@ export async function publishPublication(id: string, formData: FormData) {
 
   if (error) throw new Error(error.message)
   
+  // Trigger distribution agent
+  try {
+    const { data: pub } = await supabase
+      .from('publications')
+      .select('hub_id')
+      .eq('id', id)
+      .single()
+
+    if (pub) {
+      await inngest.send({
+        name: 'xentara/publication.published',
+        data: { publicationId: id, hubId: (pub as any).hub_id }
+      })
+    }
+  } catch (inngestError) {
+    console.warn('Distribution event failed:', inngestError)
+  }
+
   revalidatePath('/dashboard')
   revalidatePath('/dashboard/history')
   return { success: true }

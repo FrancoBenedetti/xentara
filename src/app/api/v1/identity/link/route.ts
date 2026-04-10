@@ -50,19 +50,31 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!identity) {
-      // Create a new shadow identity
+      // Create a new shadow identity attached to the current user
       const { data: created, error: createErr } = await admin
         .from('messenger_identities' as never)
         .insert({
           platform,
           platform_user_id,
           platform_username: platform_username ?? null,
+          consumer_id: user.id,
         } as never)
         .select('id, consumer_id')
         .single()
 
       if (createErr) return NextResponse.json({ error: createErr.message }, { status: 500 })
       identity = created
+    } else if (!(identity as unknown as { consumer_id: string | null }).consumer_id) {
+      // If the identity existed as a purely shadow identity from earlier tests, attach it now
+      const { data: updated, error: updateErr } = await admin
+        .from('messenger_identities' as never)
+        .update({ consumer_id: user.id } as never)
+        .eq('id', (identity as unknown as { id: string }).id)
+        .select('id, consumer_id')
+        .single()
+        
+      if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+      identity = updated
     }
 
     const identityRecord = identity as unknown as { id: string; consumer_id: string | null }

@@ -12,7 +12,15 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
   const isProcessing = ['raw', 'transcribing', 'summarizing'].includes(pub.status)
 
   const getStatusBadge = (status: string) => {
-    const commonStyles = { padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 900, border: '1px solid currentColor' }
+    const commonStyles = { 
+      padding: '0.2rem 0.5rem', 
+      borderRadius: '4px', 
+      fontSize: '0.7rem', 
+      fontWeight: 900, 
+      borderWidth: '1px',
+      borderStyle: 'solid',
+      borderColor: 'currentColor' 
+    }
     switch (status) {
       case 'published':
         return <span style={{ ...commonStyles, background: 'rgba(99, 102, 241, 0.1)', color: 'var(--indigo)' }}>PUBLISHED</span>
@@ -92,12 +100,12 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
            
            <div style={{ display: 'flex', gap: '0.5rem' }}>
              {!isProcessing && <ReprocessButton id={pub.id} url={pub.source_url} />}
-             {pub.status === 'ready' && !isProcessing && (
+             {['ready', 'published'].includes(pub.status) && !isProcessing && (
                <button 
                 onClick={() => setShowModal(true)}
                 style={{ padding: '0.4rem 0.8rem', background: 'var(--indigo)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.3)' }}
                >
-                 PUBLISH
+                 {pub.status === 'published' ? 'RE-PUBLISH' : 'PUBLISH'}
                </button>
              )}
            </div>

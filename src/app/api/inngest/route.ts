@@ -5,7 +5,8 @@ import { inngest } from "@/inngest/client";
 import { 
   discoverNewContentOnce, 
   discoverNewContentRecurring,
-  processIntelligencePipeline 
+  processIntelligencePipeline,
+  distributePublication
 } from "@/inngest/functions";
 
 export const { GET, POST, PUT } = serve({
@@ -14,5 +15,6 @@ export const { GET, POST, PUT } = serve({
     discoverNewContentOnce,
     discoverNewContentRecurring,
     processIntelligencePipeline,
+    distributePublication,
   ],
 });
