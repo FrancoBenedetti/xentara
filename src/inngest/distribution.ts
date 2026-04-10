@@ -1,6 +1,9 @@
 import { inngest } from "./client";
 import { createAdminClient } from '@/utils/supabase/admin';
-import { formatPublicationForTelegram } from '@/lib/telegram/formatter';
+import { 
+    formatPublicationForTelegram, 
+    formatPreviewForTelegram 
+} from '@/lib/telegram/formatter';
 import { Bot } from 'grammy';
 // Note: We use the admin client because this runs server-side via Inngest triggers
 
@@ -74,6 +77,7 @@ export const distributePublication = (inngest as any).createFunction(
     const formatted = await step.run('format-for-platforms', async () => {
       return {
         telegram: formatPublicationForTelegram(context.publication, context.hub),
+        telegramPreview: formatPreviewForTelegram(context.publication, context.hub),
         whatsapp: '' // Deferred.
       };
     });
@@ -93,9 +97,22 @@ export const distributePublication = (inngest as any).createFunction(
       for (const channel of context.channels) {
         try {
           if (channel.platform === 'telegram') {
-            const message = await bot.api.sendMessage(channel.channel_id, formatted.telegram, {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const viewerUrl = `${appUrl}/p/${publicationId}`;
+            
+            const buttons = [
+                { text: '🧠 Read Intelligence', url: viewerUrl }
+            ];
+            
+            if (context.publication.source_url) {
+                buttons.push({ text: '🔗 Source Article', url: context.publication.source_url });
+            }
+
+            const message = await bot.api.sendMessage(channel.channel_id, formatted.telegramPreview, {
                 parse_mode: 'HTML',
-                link_preview_options: { is_disabled: false }
+                reply_markup: {
+                    inline_keyboard: [buttons]
+                }
             });
             
             await supabase.from('distribution_log').insert({
@@ -134,8 +151,22 @@ export const distributePublication = (inngest as any).createFunction(
        
        for (const identity of context.eligibleSubscribers) {
           try {
-            const message = await bot.api.sendMessage(identity.platform_user_id, formatted.telegram, {
-                parse_mode: 'HTML'
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const viewerUrl = `${appUrl}/p/${publicationId}`;
+
+            const buttons = [
+                { text: '🧠 Read Intelligence', url: viewerUrl }
+            ];
+            
+            if (context.publication.source_url) {
+                buttons.push({ text: '🔗 Source Article', url: context.publication.source_url });
+            }
+
+            const message = await bot.api.sendMessage(identity.platform_user_id, formatted.telegramPreview, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [buttons]
+                }
             });
             
             await supabase.from('distribution_log').insert({
