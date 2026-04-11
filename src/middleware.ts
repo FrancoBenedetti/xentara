@@ -25,7 +25,9 @@ export default async function proxy(request: NextRequest) {
       })
     }
 
-    const response = pathname.startsWith('/api/inngest') 
+    const isPublicApi = pathname.startsWith('/api/inngest') || pathname.startsWith('/api/v1/webhooks')
+    
+    const response = isPublicApi 
       ? NextResponse.next() 
       : await updateSession(request)
 
