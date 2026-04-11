@@ -2,7 +2,14 @@ import { YoutubeTranscript } from 'youtube-transcript';
 import ytdl from '@distube/ytdl-core';
 import Parser from 'rss-parser';
 
-const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: [
+        ['media:group', 'mediaGroup'],
+        ['media:content', 'mediaContent']
+    ]
+  }
+});
 
 /**
  * Resolves a handle (@name) or legacy user to a permanent Channel ID (UC...)
@@ -75,12 +82,14 @@ export async function fetchLatestVideosFromChannel(channelUrl: string) {
     
     const feed = await parser.parseURL(feedUrl);
     
-    return feed.items.map(item => ({
-        id: (item as any).id?.split(':').pop() || item.link?.split('v=').pop(),
-        title: item.title,
-        link: item.link,
-        pubDate: item.pubDate
-    }));
+    return feed.items
+        .filter(item => !item.title?.toLowerCase().includes('#shorts')) // Filter 1: Title-based
+        .map(item => ({
+            id: (item as any).id?.split(':').pop() || item.link?.split('v=').pop(),
+            title: item.title,
+            link: item.link,
+            pubDate: item.pubDate
+        }));
   } catch (error: any) {
     console.error("YouTube Discovery Error [" + channelUrl + "]:", error.message);
     return [];
@@ -100,15 +109,29 @@ export async function fetchYoutubeMetadata(url: string) {
         }
     });
     
+    // Filter 2: Duration-based (Shorts are < 60s)
+    const duration = parseInt(info.videoDetails.lengthSeconds || "0");
+    if (duration > 0 && duration < 60) {
+        throw new Error("REJECTED: Video identified as Short-form media (< 60s).");
+    }
+
     let transcript = "";
     let hasTranscript = false;
     try {
         const transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
         transcript = transcriptData.map(item => item.text).join(" ");
         hasTranscript = transcript.length > 50; 
-    } catch (e) {
-        console.warn("Transcript extraction failed for " + videoId);
-        transcript = info.videoDetails.description || "No full transcript available for this media.";
+    } catch (e: any) {
+        console.warn(`Transcript extraction failed for ${videoId}: ${e.message}`);
+        
+        // Fallback to description, but only if it's substantial
+        const description = info.videoDetails.description || "";
+        if (description.length > 200) {
+            transcript = description;
+            hasTranscript = true;
+        } else {
+            throw new Error(`TRANSCRIPT FAILURE: No usable captions found and description too short for analysis.`);
+        }
     }
 
     return {
