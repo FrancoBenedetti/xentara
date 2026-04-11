@@ -164,6 +164,15 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         
         try {
             const supabase = createServiceClient();
+
+            // AUTO-PURGE: If the video was explicitly rejected (e.g. identified as a Short)
+            // we delete it from the board immediately to avoid clutter.
+            if (error.message?.includes("REJECTED:")) {
+                console.log(`[PIPELINE] Purging rejected content: ${publicationId}`);
+                await (supabase.from('publications') as any).delete().eq('id', publicationId);
+                return { status: "purged", reason: error.message };
+            }
+
             const { error: updateError } = await (supabase.from('publications') as any).update({ 
                 status: 'failed',
                 error_message: error.message || "An unexpected neural processing error occurred."
