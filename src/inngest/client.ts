@@ -13,6 +13,10 @@ export type Events = {
     name: "xentara/source.cron.discovery";
     data: {};
   };
+  "xentara/publication.published": {
+    name: "xentara/publication.published";
+    data: { publicationId: string; hubId: string };
+  };
 };
 
 // Create a client to send and receive events
