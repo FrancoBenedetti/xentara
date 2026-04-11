@@ -98,7 +98,7 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
         <div style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '0.05em', margin: 0 }}>XENTARA</h2>
-            <p style={{ fontSize: '0.7rem', color: 'var(--indigo)', fontWeight: 800, marginTop: '0.25rem', letterSpacing: '0.1em' }}>AGGREGATOR V1.0</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--indigo)', fontWeight: 800, marginTop: '0.25rem', letterSpacing: '0.1em' }}>STUDIO V1.0</p>
           </div>
           <ThemeToggle />
         </div>
@@ -147,7 +147,7 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
            >
              <span>⇠</span> Logout
            </button>
-           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', opacity: 0.5, marginTop: '0.5rem', fontWeight: 700 }}>VER V1.0 - CURATED</div>
+           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', opacity: 0.5, marginTop: '0.5rem', fontWeight: 700 }}>VER V1.0 - STUDIO</div>
         </div>
       </aside>
 

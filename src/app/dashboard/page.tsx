@@ -36,7 +36,7 @@ export default async function DashboardPage() {
             </svg>
           </div>
           <div>
-            <h1 className={styles.headerTitle}>COLLECTIVE OVERVIEW</h1>
+            <h1 className={styles.headerTitle}>STUDIO OVERVIEW</h1>
             {user && (
               <p className={styles.headerUser}>{user.email}</p>
             )}

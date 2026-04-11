@@ -7,14 +7,14 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.hero}>
           <h1 className={styles.title}>XENTARA</h1>
-          <p className={styles.subtitle}>The Agentic Content-Aggregation Framework</p>
+          <p className={styles.subtitle}>The Agentic Content-Studio Framework</p>
           
           <div className={styles.badge}>Phase 1: Infrastructure Ready</div>
         </div>
 
         <div className={styles.ctas}>
           <Link href="/dashboard" className={styles.primary}>
-            Launch Admin Console
+            Launch Curator Studio
           </Link>
           <a
             className={styles.secondary}

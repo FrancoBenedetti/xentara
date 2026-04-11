@@ -35,7 +35,7 @@ export default async function HubDetailPage({
            </Link>
            <div>
              <h1 className={styles.headerTitle}>{hub.name}</h1>
-             <p className={styles.headerUser}>COLLECTIVE INTELLIGENCE PORTAL</p>
+             <p className={styles.headerUser}>CURATOR PORTAL</p>
            </div>
         </div>
         <div className={styles.headerRight} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>

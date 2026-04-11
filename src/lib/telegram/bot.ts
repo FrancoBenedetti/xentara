@@ -10,7 +10,7 @@ export const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token_for_bu
 bot.command('start', async (ctx) => {
   await ctx.reply(
     "🧠 <b>Xentara Intelligence Bot</b>\n\n" +
-    "I deliver curated intelligence from Xentara Hubs directly to your Telegram.\n\n" +
+    "I deliver curated intelligence from Xentara Studio directly to your Telegram Reader.\n\n" +
     "<b>Commands:</b>\n" +
     "/link <code>&lt;token&gt;</code> — Link this Telegram account to your Xentara profile\n" +
     "/subscribe <code>&lt;hub&gt;</code> — Subscribe to a hub's push notifications\n" +
@@ -49,7 +49,7 @@ bot.command('link', async (ctx) => {
 
     if (tokenError || !linkToken) {
       console.error('[Telegram Webhook] Token verification error:', tokenError);
-      return ctx.reply('❌ Invalid or expired code. Please generate a new one from the Xentara Dashboard.');
+      return ctx.reply('❌ Invalid or expired code. Please generate a new one from the Xentara Studio.');
     }
 
     // Verify it's a telegram token
@@ -121,7 +121,7 @@ bot.command('subscribe', async (ctx) => {
       .single();
 
     if (!identity || !identity.consumer_id) {
-       return ctx.reply('⚠️ You must link your Xentara account first before you can subscribe.\n\nPlease visit the Xentara Dashboard to get your link code, then use `/link <code>`.', { parse_mode: 'Markdown' });
+       return ctx.reply('⚠️ You must link your Xentara account first before you can subscribe.\n\nPlease visit the Xentara Studio to get your link code, then use `/link <code>`.', { parse_mode: 'Markdown' });
     }
 
     // Create subscription

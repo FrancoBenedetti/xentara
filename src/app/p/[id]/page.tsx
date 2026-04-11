@@ -228,7 +228,7 @@ export default async function PublicationViewerPage({ params }: { params: Promis
                 </a>
             )}
             <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#71717a' }}>
-                Delivered by Xentara Intelligence Distribution Engine
+                Delivered by Xentara Library & Distribution Engine
             </p>
         </footer>
       </div>
