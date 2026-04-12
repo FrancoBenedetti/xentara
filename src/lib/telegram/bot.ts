@@ -119,7 +119,7 @@ bot.callbackQuery("browse_hubs", async (ctx) => {
   try {
     const adminClient = createAdminClient();
     
-    // Check if user is linked first to avoid confusion
+    // Check if user is linked
     const { data: identity } = await adminClient
       .from('messenger_identities')
       .select('consumer_id')
@@ -131,31 +131,43 @@ bot.callbackQuery("browse_hubs", async (ctx) => {
       return ctx.reply("Please link your account first using the 🔑 Register button above.");
     }
 
+    // Get all hubs
     const { data: hubs } = await adminClient
       .from('hubs')
       .select('name, slug')
       .order('name', { ascending: true });
 
+    // Get current subscriptions
+    const { data: subs } = await adminClient
+      .from('hub_subscriptions')
+      .select('hubs (slug)')
+      .eq('consumer_id', identity.consumer_id);
+
     if (!hubs || hubs.length === 0) {
       return ctx.reply('No hubs available at the moment.');
     }
 
+    const subSlugs = new Set((subs || []).map((s: any) => s.hubs.slug));
+
     const keyboard = new InlineKeyboard();
     hubs.forEach((hub, index) => {
-      keyboard.text(`➕ Subscribe: ${hub.name}`, `sub_${hub.slug}`);
-      if ((index + 1) % 1 === 0) keyboard.row(); // One per row for clarity
+      const isSubscribed = subSlugs.has(hub.slug);
+      const label = isSubscribed ? `✅ Subscribed: ${hub.name}` : `➕ Subscribe: ${hub.name}`;
+      keyboard.text(label, `sub_${hub.slug}`);
+      keyboard.row();
     });
 
-    await ctx.reply("🔍 <b>Explore Xentara Hubs</b>\n\nChoose a hub below to start receiving its intelligence feed directly in this chat:", {
+    await ctx.reply("🔍 <b>Explore Xentara Hubs</b>\n\nChoose a hub below to start/stop receiving its intelligence feed directly in this chat:", {
       parse_mode: 'HTML',
       reply_markup: keyboard
     });
   } catch (e) {
+    console.error('Browse hubs error:', e);
     await ctx.reply("Error fetching hubs.");
   }
 });
 
-// Handle Dynamic Subscription callback
+// Handle Dynamic Subscription callback (Toggle)
 bot.callbackQuery(/^sub_(.+)$/, async (ctx) => {
   const slug = ctx.match[1];
   const telegramId = ctx.from?.id;
@@ -189,19 +201,61 @@ bot.callbackQuery(/^sub_(.+)$/, async (ctx) => {
       return;
     }
 
-    // Upsert subscription
-    await adminClient
+    // Check for existing subscription
+    const { data: existingSub } = await adminClient
       .from('hub_subscriptions')
-      .upsert({
-        consumer_id: identity.consumer_id,
-        hub_id: hub.id,
-      }, { onConflict: 'consumer_id,hub_id' });
+      .select('id')
+      .eq('consumer_id', identity.consumer_id)
+      .eq('hub_id', hub.id)
+      .maybeSingle();
 
-    await ctx.answerCallbackQuery(`Subscribed to ${hub.name}!`);
-    await ctx.reply(`✅ Successfully subscribed to <b>${escapeHTML(hub.name)}</b>!`);
-  } catch (e) {
-    console.error('Callback subscription error:', e);
-    await ctx.answerCallbackQuery("Subscription failed.");
+    if (existingSub) {
+      // Unsubscribe
+      await adminClient
+        .from('hub_subscriptions')
+        .delete()
+        .eq('id', existingSub.id);
+      await ctx.answerCallbackQuery(`Unsubscribed from ${hub.name}`);
+    } else {
+      // Subscribe
+      await adminClient
+        .from('hub_subscriptions')
+        .insert({
+          consumer_id: identity.consumer_id,
+          hub_id: hub.id,
+        });
+      await ctx.answerCallbackQuery(`Subscribed to ${hub.name}!`);
+    }
+
+    // UPDATE KEYBOARD IN REAL-TIME
+    const { data: allHubs } = await adminClient
+      .from('hubs')
+      .select('name, slug')
+      .order('name', { ascending: true });
+
+    const { data: allSubs } = await adminClient
+      .from('hub_subscriptions')
+      .select('hubs (slug)')
+      .eq('consumer_id', identity.consumer_id);
+
+    const updatedSubSlugs = new Set((allSubs || []).map((s: any) => s.hubs.slug));
+    const newKeyboard = new InlineKeyboard();
+    
+    (allHubs || []).forEach((h) => {
+      const active = updatedSubSlugs.has(h.slug);
+      const label = active ? `✅ Subscribed: ${h.name}` : `➕ Subscribe: ${h.name}`;
+      newKeyboard.text(label, `sub_${h.slug}`).row();
+    });
+
+    try {
+      await ctx.editMessageReplyMarkup({ reply_markup: newKeyboard });
+    } catch (err) {
+      // Ignore if markup is same
+    }
+    
+  } catch (error) {
+    console.error('Toggle subscription error:', error);
+    await ctx.answerCallbackQuery("Action failed.");
   }
 });
 
