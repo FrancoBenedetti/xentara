@@ -10,7 +10,19 @@ const parser = new Parser({
  */
 export async function fetchLatestArticlesFromFeed(url: string) {
     try {
-        const feed = await parser.parseURL(url);
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Status code ${response.status}: Failed to fetch feed`);
+        }
+        
+        const xml = await response.text();
+        const feed = await parser.parseString(xml);
         return feed.items.map(item => ({
             id: item.guid || item.link,
             title: item.title,
