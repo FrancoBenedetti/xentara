@@ -1,7 +1,10 @@
 import Parser from 'rss-parser';
 
-const parser = new Parser();
-
+const parser = new Parser({
+    headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+    }
+});
 export async function getLatestVideosFromChannel(channelId: string) {
   try {
     const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
@@ -13,9 +16,9 @@ export async function getLatestVideosFromChannel(channelId: string) {
         url: item.link,
         publishedAt: item.pubDate
     }));
-  } catch (error) {
-    console.error("YouTube Channel Discovery Error:", error);
-    return [];
+  } catch (error: any) {
+    console.error("YouTube Channel Discovery Error:", error.message);
+    throw error;
   }
 }
 

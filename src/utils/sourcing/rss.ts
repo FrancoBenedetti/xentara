@@ -1,7 +1,10 @@
 import Parser from 'rss-parser';
 
-const parser = new Parser();
-
+const parser = new Parser({
+    headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+    }
+});
 /**
  * Basic discovery of latest items in a feed
  */
@@ -14,9 +17,9 @@ export async function fetchLatestArticlesFromFeed(url: string) {
             link: item.link,
             pubDate: item.pubDate
         }));
-    } catch (error) {
-        console.error("RSS Discovery Error:", error);
-        return [];
+    } catch (error: any) {
+        console.error("RSS Discovery Error:", error.message);
+        throw error;
     }
 }
 
