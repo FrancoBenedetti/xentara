@@ -100,18 +100,24 @@ export const distributePublication = (inngest as any).createFunction(
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const viewerUrl = `${appUrl}/p/${publicationId}`;
             
-            const buttons = [
+            const row1 = [
                 { text: '🧠 Read Intelligence', url: viewerUrl }
             ];
             
             if (context.publication.source_url) {
-                buttons.push({ text: '🔗 Source Article', url: context.publication.source_url });
+                row1.push({ text: '🔗 Source Article', url: context.publication.source_url });
             }
+
+            const row2 = [
+                { text: '🧠 Insight', callback_data: `react_${publicationId}_insight` },
+                { text: '👍 Helpful', callback_data: `react_${publicationId}_helpful` },
+                { text: '👎 Noted', callback_data: `react_${publicationId}_irrelevant` }
+            ];
 
             const message = await bot.api.sendMessage(channel.channel_id, formatted.telegramPreview, {
                 parse_mode: 'HTML',
                 reply_markup: {
-                    inline_keyboard: [buttons]
+                    inline_keyboard: [row1, row2]
                 }
             });
             
@@ -154,18 +160,24 @@ export const distributePublication = (inngest as any).createFunction(
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const viewerUrl = `${appUrl}/p/${publicationId}`;
 
-            const buttons = [
+            const row1 = [
                 { text: '🧠 Read Intelligence', url: viewerUrl }
             ];
             
             if (context.publication.source_url) {
-                buttons.push({ text: '🔗 Source Article', url: context.publication.source_url });
+                row1.push({ text: '🔗 Source Article', url: context.publication.source_url });
             }
+
+            const row2 = [
+                { text: '🧠 Insight', callback_data: `react_${publicationId}_insight` },
+                { text: '👍 Helpful', callback_data: `react_${publicationId}_helpful` },
+                { text: '👎 Noted', callback_data: `react_${publicationId}_irrelevant` }
+            ];
 
             const message = await bot.api.sendMessage(identity.platform_user_id, formatted.telegramPreview, {
                 parse_mode: 'HTML',
                 reply_markup: {
-                    inline_keyboard: [buttons]
+                    inline_keyboard: [row1, row2]
                 }
             });
             

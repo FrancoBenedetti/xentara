@@ -3,7 +3,7 @@ import { createServiceClient } from "@/utils/supabase/service";
 import { ingestContent, discoverRecentItems } from "@/utils/sourcing/engine";
 import { summarizeWithAI, predictTaste } from "@/utils/ai/engine";
 export { distributePublication } from "./distribution";
-
+export { processEngagementFeedback } from "./engagement";
 /**
  * 1. DISCOVERY AGENT (Instant)
  * Triggered when a new source (channel/feed) is added.

@@ -40,6 +40,9 @@ export default async function HubDetailPage({
         </div>
         <div className={styles.headerRight} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <AddSourceForm hubId={hub.id} />
+          <Link href={`/dashboard/hubs/${hub.slug}/intelligence`} style={{ color: 'var(--text-main)', textDecoration: 'none', fontSize: '0.9rem', padding: '0.5rem 1rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
+             🧠 Intelligence
+          </Link>
           <Link href={`/dashboard/hubs/${hub.slug}/settings`} style={{ color: 'var(--text-main)', textDecoration: 'none', fontSize: '0.9rem', padding: '0.5rem 1rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
              ⚙️ Settings
           </Link>

@@ -261,3 +261,36 @@ async function predictTasteGemini(summary: string, title: string, hubId: string)
       throw error;
     }
 }
+
+/**
+ * Analyzes the sentiment of a user comment.
+ * Returns a score between -1.0 and 1.0.
+ */
+export async function analyzeSentiment(comment: string): Promise<number> {
+  if (!comment || comment.trim().length === 0) return 0;
+
+  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    try {
+      const prompt = `Analyze the sentiment of this user comment regarding an article. 
+      Return ONLY a float between -1.0 (very negative) and 1.0 (very positive). 
+      Comment: "${comment.substring(0, 2000)}"`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const score = parseFloat(content);
+        if (!isNaN(score)) return Math.max(-1.0, Math.min(1.0, score));
+      }
+    } catch (e) {
+      console.warn("Gemini sentiment failed:", e);
+    }
+  }
+
+  // Fallback to Inception or default
+  return 0;
+}

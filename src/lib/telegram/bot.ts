@@ -1,7 +1,8 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+import { inngest } from '@/inngest/client';
 import { Bot, InlineKeyboard } from 'grammy';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { escapeHTML } from './formatter';
-
 // Initialize the bot with the token from environment variables
 // It's safe to cast since we'll check it in the webhook route before calling
 export const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token_for_build');
@@ -532,4 +533,143 @@ bot.callbackQuery("help", async (ctx) => {
 bot.catch((err) => {
   console.error(`Error while handling update ${err.ctx.update.update_id}:`);
   console.error(err.error);
+});
+
+// Helper for finding or creating an unlinked messenger identity
+async function findOrCreateMessengerIdentity(
+  adminClient: SupabaseClient,
+  telegramId: number,
+  username?: string
+) {
+  const { data: existing } = await adminClient
+    .from('messenger_identities')
+    .select('id, consumer_id')
+    .eq('platform', 'telegram')
+    .eq('platform_user_id', telegramId.toString())
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  const { data: created } = await adminClient
+    .from('messenger_identities')
+    .insert({
+      platform: 'telegram',
+      platform_user_id: telegramId.toString(),
+      platform_username: username || null,
+      is_verified: false
+    })
+    .select('id, consumer_id')
+    .single();
+
+  return created!;
+}
+
+// Reaction Handler
+bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
+  const publicationId = ctx.match[1];
+  const reactionType = ctx.match[2]; // 'insight' | 'helpful' | 'irrelevant'
+  const telegramId = ctx.from?.id;
+  if (!telegramId || !publicationId) return;
+
+  const adminClient = createAdminClient();
+
+  let identity = await findOrCreateMessengerIdentity(adminClient, telegramId, ctx.from?.username);
+
+  const { data: pub } = await adminClient
+    .from('publications')
+    .select('hub_id')
+    .eq('id', publicationId)
+    .single();
+
+  if (!pub) {
+    return ctx.answerCallbackQuery("Publication not found.");
+  }
+
+  const { error } = await adminClient
+    .from('publication_engagement')
+    .upsert({
+      publication_id: publicationId,
+      hub_id: pub.hub_id,
+      consumer_id: identity.consumer_id || null,
+      messenger_identity_id: identity.id,
+      platform: 'telegram',
+      type: 'reaction',
+      value: reactionType,
+      metadata: { chat_id: ctx.chat?.id }
+    }, { onConflict: 'publication_id,messenger_identity_id,type,value' } as any);
+
+  if (error) {
+    await adminClient
+      .from('publication_engagement')
+      .delete()
+      .eq('publication_id', publicationId)
+      .eq('messenger_identity_id', identity.id)
+      .eq('type', 'reaction')
+      .eq('value', reactionType);
+
+    await ctx.answerCallbackQuery("Reaction removed.");
+  } else {
+    const labels: Record<string, string> = {
+      insight: "🧠 Marked as Insight",
+      helpful: "👍 Marked as Helpful",
+      irrelevant: "👎 Noted"
+    };
+    await ctx.answerCallbackQuery(labels[reactionType] || "Recorded!");
+  }
+});
+
+// Reply-to-Comment Handler
+bot.on('message', async (ctx) => {
+  if (!ctx.message?.reply_to_message) return;
+  if (!ctx.message.text) return;
+
+  const repliedToMessageId = ctx.message.reply_to_message.message_id.toString();
+  const chatId = ctx.chat.id.toString();
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const adminClient = createAdminClient();
+
+  const { data: logEntry } = await adminClient
+    .from('distribution_log')
+    .select('publication_id, publication:publications!inner(hub_id)')
+    .eq('message_id', repliedToMessageId)
+    .eq('target_id', chatId)
+    .eq('status', 'sent')
+    .single() as any;
+
+  if (!logEntry) return;
+
+  const identity = await findOrCreateMessengerIdentity(adminClient, telegramId, ctx.from?.username);
+
+  await adminClient
+    .from('publication_engagement')
+    .insert({
+      publication_id: logEntry.publication_id,
+      hub_id: logEntry.publication.hub_id,
+      consumer_id: identity.consumer_id || null,
+      messenger_identity_id: identity.id,
+      platform: 'telegram',
+      type: 'comment',
+      value: ctx.message.text.substring(0, 2000),
+      metadata: {
+        chat_id: chatId,
+        message_id: ctx.message.message_id,
+        reply_to_message_id: repliedToMessageId
+      }
+    } as any);
+
+  try {
+    await inngest.send({
+      name: 'xentara/engagement.received',
+      data: {
+        publicationId: logEntry.publication_id,
+        hubId: logEntry.publication.hub_id,
+        type: 'comment',
+        content: ctx.message.text.substring(0, 2000)
+      }
+    });
+  } catch (e) {
+    console.warn('Engagement event emission failed:', e);
+  }
 });
