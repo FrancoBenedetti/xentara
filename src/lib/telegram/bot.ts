@@ -47,8 +47,9 @@ bot.command('start', async (ctx) => {
     keyboard.text("❓ How it works", "how_it_works");
   } else {
     keyboard.text("📋 My Hubs", "my_subscriptions");
-    keyboard.webApp("🔍 Explore Hubs", "https://xentara-consumer-pwa.vercel.app/?twa=1").row();
-    keyboard.url("🌐 Visit Xentara Browser", "https://xentara-consumer-pwa.vercel.app/");
+    keyboard.text("🔍 Explore Hubs", "browse_hubs").row();
+    keyboard.url("🌐 Visit Xentara Browser", "https://xentara-consumer-pwa.vercel.app/").row();
+    keyboard.text("❓ Help", "help");
   }
 
   await ctx.reply(welcomeText, { 
@@ -107,6 +108,190 @@ bot.callbackQuery("my_subscriptions", async (ctx) => {
     await ctx.reply(`<b>Your Hub Subscriptions:</b>\n\n${hubList}`, { parse_mode: 'HTML' });
   } catch (e) {
     await ctx.reply("Error fetching subscriptions.");
+  }
+});
+
+// Handle "Explore Hubs" callback
+bot.callbackQuery("browse_hubs", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    const adminClient = createAdminClient();
+    
+    // Check if user is linked
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('consumer_id')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .single();
+
+    if (!identity) {
+      return ctx.reply("Please link your account first using the 🔑 Register button above.");
+    }
+
+    // Get all hubs
+    const { data: hubs } = await adminClient
+      .from('hubs')
+      .select('name, slug')
+      .order('name', { ascending: true });
+
+    // Get current subscriptions
+    const { data: subs } = await adminClient
+      .from('hub_subscriptions')
+      .select('hubs (slug)')
+      .eq('consumer_id', identity.consumer_id);
+
+    if (!hubs || hubs.length === 0) {
+      return ctx.reply('No hubs available at the moment.');
+    }
+
+    const subSlugs = new Set((subs || []).map((s: any) => s.hubs.slug));
+
+    const keyboard = new InlineKeyboard();
+    hubs.forEach((hub, index) => {
+      const isSubscribed = subSlugs.has(hub.slug);
+      const label = isSubscribed ? `✅ Subscribed: ${hub.name}` : `➕ Subscribe: ${hub.name}`;
+      keyboard.text(label, `sub_${hub.slug}`);
+      keyboard.row();
+    });
+    
+    keyboard.text("❓ Help", "help");
+
+    await ctx.reply("🔍 <b>Explore Xentara Hubs</b>\n\nChoose a hub below to start/stop receiving its intelligence feed directly in this chat:", {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  } catch (e) {
+    console.error('Browse hubs error:', e);
+    await ctx.reply("Error fetching hubs.");
+  }
+});
+
+// Handle Dynamic Subscription callback (Toggle)
+bot.callbackQuery(/^sub_(.+)$/, async (ctx) => {
+  const slug = ctx.match[1];
+  const telegramId = ctx.from?.id;
+  if (!telegramId || !slug) return;
+
+  try {
+    const adminClient = createAdminClient();
+    
+    // Find hub
+    const { data: hub } = await adminClient
+      .from('hubs')
+      .select('id, name')
+      .eq('slug', slug)
+      .single();
+
+    if (!hub) {
+      await ctx.answerCallbackQuery("Hub not found.");
+      return;
+    }
+
+    // Find identity
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('consumer_id')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .single();
+
+    if (!identity) {
+      await ctx.answerCallbackQuery("Account not linked.");
+      return;
+    }
+
+    // Check for existing subscription
+    const { data: existingSub } = await adminClient
+      .from('hub_subscriptions')
+      .select('id')
+      .eq('consumer_id', identity.consumer_id)
+      .eq('hub_id', hub.id)
+      .maybeSingle();
+
+    if (existingSub) {
+      // Unsubscribe
+      await adminClient
+        .from('hub_subscriptions')
+        .delete()
+        .eq('id', existingSub.id);
+      await ctx.answerCallbackQuery(`Unsubscribed from ${hub.name}`);
+    } else {
+      // Subscribe
+      await adminClient
+        .from('hub_subscriptions')
+        .insert({
+          consumer_id: identity.consumer_id,
+          hub_id: hub.id,
+        });
+      await ctx.answerCallbackQuery(`Subscribed to ${hub.name}!`);
+    }
+
+    // UPDATE KEYBOARD IN REAL-TIME
+    const { data: allHubs } = await adminClient
+      .from('hubs')
+      .select('name, slug')
+      .order('name', { ascending: true });
+
+    const { data: allSubs } = await adminClient
+      .from('hub_subscriptions')
+      .select('hubs (slug)')
+      .eq('consumer_id', identity.consumer_id);
+
+    const updatedSubSlugs = new Set((allSubs || []).map((s: any) => s.hubs.slug));
+    const newKeyboard = new InlineKeyboard();
+    
+    (allHubs || []).forEach((h) => {
+      const active = updatedSubSlugs.has(h.slug);
+      const label = active ? `✅ Subscribed: ${h.name}` : `➕ Subscribe: ${h.name}`;
+      newKeyboard.text(label, `sub_${h.slug}`).row();
+    });
+
+    try {
+      await ctx.editMessageReplyMarkup({ reply_markup: newKeyboard });
+    } catch (err) {
+      // Ignore if markup is same
+    }
+    
+  } catch (error) {
+    console.error('Toggle subscription error:', error);
+    await ctx.answerCallbackQuery("Action failed.");
+  }
+});
+
+// --- INLINE MODE SEARCH ---
+// Note: To enable this, you must go to @BotFather -> /setinline -> Choose your bot
+bot.on("inline_query", async (ctx) => {
+  const query = ctx.inlineQuery.query.trim();
+  
+  try {
+    const adminClient = createAdminClient();
+    let supabaseQuery = adminClient.from('hubs').select('id, name, slug');
+    
+    if (query) {
+      supabaseQuery = supabaseQuery.ilike('name', `%${query}%`);
+    }
+
+    const { data: hubs } = await supabaseQuery.limit(10);
+
+    const results = (hubs || []).map((hub): any => ({
+      type: "article",
+      id: `hub_${hub.id}`,
+      title: hub.name,
+      description: `Subscribe to ${hub.name} (${hub.slug})`,
+      input_message_content: {
+        message_text: `/subscribe ${hub.slug}`,
+        parse_mode: 'HTML'
+      },
+      reply_markup: new InlineKeyboard().text(`➕ Subscribe to ${hub.name}`, `sub_${hub.slug}`)
+    }));
+
+    await ctx.answerInlineQuery(results, { cache_time: 300 });
+  } catch (err) {
+    console.error('Inline search error:', err);
   }
 });
 
@@ -311,7 +496,9 @@ bot.command('help', async (ctx) => {
     "/link — Link your profile\n" +
     "/subscribe — Follow a hub (e.g. <code>/subscribe technology</code>)\n" +
     "/myhubs — List your active feeds\n" +
-    "/chatid — Technical chat info";
+    "/chatid — Technical chat info\n\n" +
+    "<b>⚡ Inline Search:</b>\n" +
+    "You can search for hubs from any chat! Just type <code>@bot_username keyword</code> to find and share hub subscription links.";
 
   const keyboard = new InlineKeyboard();
   if (!isLinked) {
@@ -319,7 +506,7 @@ bot.command('help', async (ctx) => {
     keyboard.text("❓ How it works", "how_it_works");
   } else {
     keyboard.text("📋 My Hubs", "my_subscriptions");
-    keyboard.webApp("🔍 Explore Hubs", "https://xentara-consumer-pwa.vercel.app/?twa=1").row();
+    keyboard.text("🔍 Explore Hubs", "browse_hubs").row();
     keyboard.url("🌐 Visit PWA", "https://xentara-consumer-pwa.vercel.app/");
   }
 
@@ -328,6 +515,17 @@ bot.command('help', async (ctx) => {
     reply_markup: keyboard,
     link_preview_options: { is_disabled: true }
   });
+});
+
+// Alias "help" callback to command
+bot.callbackQuery("help", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  // We manually call the logic or we can just send the message.
+  // In grammy, we can't easily trigger the command handler with a dummy context
+  // So we just re-execute the start logic here or move instructions to a helper.
+  // For now, let's just use the shared callback query handler logic if we extract it.
+  // But let's keep it simple: just reply with the help text.
+  await ctx.reply("Type /help to see all instructions and commands.");
 });
 
 // Error handler
