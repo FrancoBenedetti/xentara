@@ -1,4 +1,4 @@
-import { Bot } from 'grammy';
+import { Bot, InlineKeyboard } from 'grammy';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { escapeHTML } from './formatter';
 
@@ -8,16 +8,105 @@ export const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token_for_bu
 
 // /start - Welcome message with instructions
 bot.command('start', async (ctx) => {
-  await ctx.reply(
+  const telegramId = ctx.from?.id;
+  let isLinked = false;
+
+  if (telegramId) {
+    const adminClient = createAdminClient();
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('id')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .eq('is_verified', true)
+      .maybeSingle();
+    
+    isLinked = !!identity;
+  }
+
+  const welcomeText = 
     "🧠 <b>Xentara Intelligence Bot</b>\n\n" +
-    "I deliver curated intelligence from Xentara Studio directly to your Telegram Reader.\n\n" +
-    "<b>Commands:</b>\n" +
-    "/link <code>&lt;token&gt;</code> — Link this Telegram account to your Xentara profile\n" +
-    "/subscribe <code>&lt;hub&gt;</code> — Subscribe to a hub's push notifications\n" +
-    "/myhubs — List your active hub subscriptions\n" +
-    "/help — Show this message again",
-    { parse_mode: 'HTML' }
+    "I deliver curated intelligence from Xentara Hubs directly to your Telegram.\n\n" +
+    (isLinked 
+      ? "✅ <b>Your account is linked!</b> You are ready to receive intelligence updates."
+      : "<b>Getting Started:</b>\n" +
+        "1. Create an account at <a href=\"https://xentara-consumer-pwa.vercel.app/\">Xentara Browser</a>\n" +
+        "2. Copy your 6-digit link code from your Profile\n" +
+        "3. Use /link <code>&lt;code&gt;</code> to connect this chat\n\n" +
+        "Once linked, you can subscribe to hubs to receive intelligence feeds.") +
+    "\n\n<b>Commands:</b>\n" +
+    "/link <code>&lt;token&gt;</code> — Link your account\n" +
+    "/subscribe <code>&lt;hub&gt;</code> — Subscribe to hub feeds\n" +
+    "/myhubs — Manage your subscriptions\n" +
+    "/help — Show instructions";
+
+  const keyboard = new InlineKeyboard();
+  
+  if (!isLinked) {
+    keyboard.url("🔑 Register on PWA", "https://xentara-consumer-pwa.vercel.app/").row();
+    keyboard.text("❓ How it works", "how_it_works");
+  } else {
+    keyboard.text("📋 My Hubs", "my_subscriptions").row();
+    keyboard.url("🌐 Visit Xentara Browser", "https://xentara-consumer-pwa.vercel.app/");
+  }
+
+  await ctx.reply(welcomeText, { 
+    parse_mode: 'HTML', 
+    reply_markup: keyboard,
+    disable_web_page_preview: true 
+  });
+});
+
+// Handle "How it works" callback
+bot.callbackQuery("how_it_works", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.reply(
+    "<b>How Xentara works:</b>\n\n" +
+    "1️⃣ <b>Create Profile:</b> Visit the <a href=\"https://xentara-consumer-pwa.vercel.app/\">Xentara Browser</a> and sign up.\n" +
+    "2️⃣ <b>Link Telegram:</b> Go to your Profile on the website, find the Telegram section, and generate a 6-digit code.\n" +
+    "3️⃣ <b>Connect:</b> Type <code>/link &lt;your-code&gt;</code> in this chat.\n" +
+    "4️⃣ <b>Subscribe:</b> Browse hubs on the website or use <code>/subscribe &lt;hub-slug&gt;</code> to start receiving intelligence.",
+    { parse_mode: 'HTML', disable_web_page_preview: true }
   );
+});
+
+// Handle "My Hubs" button callback
+bot.callbackQuery("my_subscriptions", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  // We can just trigger the command handler logic
+  // For simplicity, we just tell them to use the command or we could extract the logic.
+  // Let's just point them to the command for now or call the handler if we had it as a separate function.
+  // Actually, we can reuse the logic easily.
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    const adminClient = createAdminClient();
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('consumer_id')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .single();
+
+    if (!identity) {
+      return ctx.reply("Account not linked.");
+    }
+
+    const { data: subs } = await adminClient
+      .from('hub_subscriptions')
+      .select('hubs (name, slug)')
+      .eq('consumer_id', identity.consumer_id);
+
+    if (!subs || subs.length === 0) {
+      return ctx.reply('You are not currently subscribed to any hubs.');
+    }
+
+    const hubList = subs.map((s: any) => `• <b>${escapeHTML(s.hubs.name)}</b> (<code>${escapeHTML(s.hubs.slug)}</code>)`).join('\n');
+    await ctx.reply(`<b>Your Hub Subscriptions:</b>\n\n${hubList}`, { parse_mode: 'HTML' });
+  } catch (e) {
+    await ctx.reply("Error fetching subscriptions.");
+  }
 });
 
 // /link <code> - Complete identity hydration from Phase 7
@@ -92,7 +181,11 @@ bot.command('subscribe', async (ctx) => {
   const slug = ctx.match?.trim();
   
   if (!slug) {
-    return ctx.reply('Please specify a hub slug. Example: `/subscribe tech-news`', { parse_mode: 'Markdown' });
+    const keyboard = new InlineKeyboard().url("🌐 Browse Hubs", "https://xentara-consumer-pwa.vercel.app/");
+    return ctx.reply('Please specify a hub slug. Example: `/subscribe tech-news` \n\nYou can find slugs on the Xentara Browser.', { 
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+    });
   }
   
   const telegramId = ctx.from?.id;
@@ -188,6 +281,52 @@ bot.command('chatid', async (ctx) => {
   await ctx.reply(`🆔 <b>Chat Info</b>\n\n<b>Type:</b> ${chatType}\n<b>Target ID:</b> <code>${chatId}</code>\n\n<i>Copy this ID and add it to your Hub Distribution settings.</i>`, { parse_mode: 'HTML' });
 });
 
+
+// /help - Detailed instructions
+bot.command('help', async (ctx) => {
+  const telegramId = ctx.from?.id;
+  let isLinked = false;
+
+  if (telegramId) {
+    const adminClient = createAdminClient();
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('id')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .eq('is_verified', true)
+      .maybeSingle();
+    isLinked = !!identity;
+  }
+
+  const helpText = 
+    "❓ <b>Xentara Help & Instructions</b>\n\n" +
+    "To use this bot, you must connect it to your Xentara Profile.\n\n" +
+    "<b>Steps to connect:</b>\n" +
+    "1. Register at <a href=\"https://xentara-consumer-pwa.vercel.app/\">Xentara Browser</a>\n" +
+    "2. Visit your Profile and generate a 6-digit Link Code\n" +
+    "3. Use /link <code>&lt;your-code&gt;</code> here\n\n" +
+    "<b>Commands:</b>\n" +
+    "/link — Link your profile\n" +
+    "/subscribe — Follow a hub (e.g. <code>/subscribe technology</code>)\n" +
+    "/myhubs — List your active feeds\n" +
+    "/chatid — Technical chat info";
+
+  const keyboard = new InlineKeyboard();
+  if (!isLinked) {
+    keyboard.url("🔑 Register on PWA", "https://xentara-consumer-pwa.vercel.app/").row();
+    keyboard.text("❓ How it works", "how_it_works");
+  } else {
+    keyboard.text("📋 My Hubs", "my_subscriptions").row();
+    keyboard.url("🌐 Visit PWA", "https://xentara-consumer-pwa.vercel.app/");
+  }
+
+  await ctx.reply(helpText, { 
+    parse_mode: 'HTML', 
+    reply_markup: keyboard,
+    disable_web_page_preview: true 
+  });
+});
 
 // Error handler
 bot.catch((err) => {
