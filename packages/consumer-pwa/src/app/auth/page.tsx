@@ -5,12 +5,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
+import { getURL } from '@/utils/url'
 
 // Note: metadata export from a client component requires a separate generateMetadata
 // For phase 6 we keep it simple with a static title via the document.
 export default function AuthPage() {
   const router = useRouter()
   const supabase = createClient()
+  const baseUrl = getURL()
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
@@ -27,7 +29,13 @@ export default function AuthPage() {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            emailRedirectTo: `${baseUrl}/auth/callback`
+          }
+        })
         if (error) throw error
         setMessage('Check your email to confirm your account before signing in.')
       } else {

@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { getURL } from '@/utils/url'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -32,7 +33,12 @@ export async function signup(formData: FormData) {
     password: formData.get('password') as string,
   }
 
-  const { error } = await supabase.auth.signUp(data)
+  const { error } = await supabase.auth.signUp({
+    ...data,
+    options: {
+      emailRedirectTo: `${getURL()}/auth/callback`,
+    },
+  })
 
   if (error) {
     throw new Error(error.message)
