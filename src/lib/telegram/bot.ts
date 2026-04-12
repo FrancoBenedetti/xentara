@@ -46,7 +46,8 @@ bot.command('start', async (ctx) => {
     keyboard.url("🔑 Register on PWA", "https://xentara-consumer-pwa.vercel.app/").row();
     keyboard.text("❓ How it works", "how_it_works");
   } else {
-    keyboard.text("📋 My Hubs", "my_subscriptions").row();
+    keyboard.text("📋 My Hubs", "my_subscriptions");
+    keyboard.text("🔍 Explore Hubs", "browse_hubs").row();
     keyboard.url("🌐 Visit Xentara Browser", "https://xentara-consumer-pwa.vercel.app/");
   }
 
@@ -106,6 +107,101 @@ bot.callbackQuery("my_subscriptions", async (ctx) => {
     await ctx.reply(`<b>Your Hub Subscriptions:</b>\n\n${hubList}`, { parse_mode: 'HTML' });
   } catch (e) {
     await ctx.reply("Error fetching subscriptions.");
+  }
+});
+
+// Handle "Explore Hubs" callback
+bot.callbackQuery("browse_hubs", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    const adminClient = createAdminClient();
+    
+    // Check if user is linked first to avoid confusion
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('consumer_id')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .single();
+
+    if (!identity) {
+      return ctx.reply("Please link your account first using the 🔑 Register button above.");
+    }
+
+    const { data: hubs } = await adminClient
+      .from('hubs')
+      .select('name, slug')
+      .order('name', { ascending: true });
+
+    if (!hubs || hubs.length === 0) {
+      return ctx.reply('No hubs available at the moment.');
+    }
+
+    const keyboard = new InlineKeyboard();
+    hubs.forEach((hub, index) => {
+      keyboard.text(`➕ Subscribe: ${hub.name}`, `sub_${hub.slug}`);
+      if ((index + 1) % 1 === 0) keyboard.row(); // One per row for clarity
+    });
+
+    await ctx.reply("🔍 <b>Explore Xentara Hubs</b>\n\nChoose a hub below to start receiving its intelligence feed directly in this chat:", {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  } catch (e) {
+    await ctx.reply("Error fetching hubs.");
+  }
+});
+
+// Handle Dynamic Subscription callback
+bot.callbackQuery(/^sub_(.+)$/, async (ctx) => {
+  const slug = ctx.match[1];
+  const telegramId = ctx.from?.id;
+  if (!telegramId || !slug) return;
+
+  try {
+    const adminClient = createAdminClient();
+    
+    // Find hub
+    const { data: hub } = await adminClient
+      .from('hubs')
+      .select('id, name')
+      .eq('slug', slug)
+      .single();
+
+    if (!hub) {
+      await ctx.answerCallbackQuery("Hub not found.");
+      return;
+    }
+
+    // Find identity
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('consumer_id')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .single();
+
+    if (!identity) {
+      await ctx.answerCallbackQuery("Account not linked.");
+      return;
+    }
+
+    // Upsert subscription
+    await adminClient
+      .from('hub_subscriptions')
+      .upsert({
+        consumer_id: identity.consumer_id,
+        hub_id: hub.id,
+      }, { onConflict: 'consumer_id,hub_id' });
+
+    await ctx.answerCallbackQuery(`Subscribed to ${hub.name}!`);
+    await ctx.reply(`✅ Successfully subscribed to <b>${escapeHTML(hub.name)}</b>!`);
+  } catch (e) {
+    console.error('Callback subscription error:', e);
+    await ctx.answerCallbackQuery("Subscription failed.");
   }
 });
 
@@ -317,7 +413,8 @@ bot.command('help', async (ctx) => {
     keyboard.url("🔑 Register on PWA", "https://xentara-consumer-pwa.vercel.app/").row();
     keyboard.text("❓ How it works", "how_it_works");
   } else {
-    keyboard.text("📋 My Hubs", "my_subscriptions").row();
+    keyboard.text("📋 My Hubs", "my_subscriptions");
+    keyboard.text("🔍 Explore Hubs", "browse_hubs").row();
     keyboard.url("🌐 Visit PWA", "https://xentara-consumer-pwa.vercel.app/");
   }
 
