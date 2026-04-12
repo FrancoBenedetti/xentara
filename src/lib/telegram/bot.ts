@@ -53,7 +53,7 @@ bot.command('start', async (ctx) => {
   await ctx.reply(welcomeText, { 
     parse_mode: 'HTML', 
     reply_markup: keyboard,
-    disable_web_page_preview: true 
+    link_preview_options: { is_disabled: true }
   });
 });
 
@@ -66,7 +66,7 @@ bot.callbackQuery("how_it_works", async (ctx) => {
     "2️⃣ <b>Link Telegram:</b> Go to your Profile on the website, find the Telegram section, and generate a 6-digit code.\n" +
     "3️⃣ <b>Connect:</b> Type <code>/link &lt;your-code&gt;</code> in this chat.\n" +
     "4️⃣ <b>Subscribe:</b> Browse hubs on the website or use <code>/subscribe &lt;hub-slug&gt;</code> to start receiving intelligence.",
-    { parse_mode: 'HTML', disable_web_page_preview: true }
+    { parse_mode: 'HTML', link_preview_options: { is_disabled: true } }
   );
 });
 
@@ -324,7 +324,7 @@ bot.command('help', async (ctx) => {
   await ctx.reply(helpText, { 
     parse_mode: 'HTML', 
     reply_markup: keyboard,
-    disable_web_page_preview: true 
+    link_preview_options: { is_disabled: true }
   });
 });
 
