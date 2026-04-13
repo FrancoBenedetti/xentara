@@ -31,7 +31,7 @@ bot.command('start', async (ctx) => {
     (isLinked 
       ? "✅ <b>Your account is linked!</b> You are ready to receive intelligence updates."
       : "<b>Getting Started:</b>\n" +
-        "1. Create an account at <a href=\"https://xentara-consumer-pwa.vercel.app/\">Xentara Browser</a>\n" +
+        "1. Create an account at <a href=\"https://xentara-reader.growthhq.biz\">Xentara Browser</a>\n" +
         "2. Copy your 6-digit link code from your Profile\n" +
         "3. Use /link <code>&lt;code&gt;</code> to connect this chat\n\n" +
         "Once linked, you can subscribe to hubs to receive intelligence feeds.") +
@@ -44,12 +44,12 @@ bot.command('start', async (ctx) => {
   const keyboard = new InlineKeyboard();
   
   if (!isLinked) {
-    keyboard.url("🔑 Register on PWA", "https://xentara-consumer-pwa.vercel.app/").row();
+    keyboard.url("🔑 Register on PWA", "https://xentara-reader.growthhq.biz").row();
     keyboard.text("❓ How it works", "how_it_works");
   } else {
     keyboard.text("📋 My Hubs", "my_subscriptions");
     keyboard.text("🔍 Explore Hubs", "browse_hubs").row();
-    keyboard.url("🌐 Visit Xentara Browser", "https://xentara-consumer-pwa.vercel.app/").row();
+    keyboard.url("🌐 Visit Xentara Browser", "https://xentara-reader.growthhq.biz").row();
     keyboard.text("❓ Help", "help");
   }
 
@@ -65,7 +65,7 @@ bot.callbackQuery("how_it_works", async (ctx) => {
   await ctx.answerCallbackQuery();
   await ctx.reply(
     "<b>How Xentara works:</b>\n\n" +
-    "1️⃣ <b>Create Profile:</b> Visit the <a href=\"https://xentara-consumer-pwa.vercel.app/\">Xentara Browser</a> and sign up.\n" +
+    "1️⃣ <b>Create Profile:</b> Visit the <a href=\"https://xentara-reader.growthhq.biz\">Xentara Browser</a> and sign up.\n" +
     "2️⃣ <b>Link Telegram:</b> Go to your Profile on the website, find the Telegram section, and generate a 6-digit code.\n" +
     "3️⃣ <b>Connect:</b> Type <code>/link &lt;your-code&gt;</code> in this chat.\n" +
     "4️⃣ <b>Subscribe:</b> Browse hubs on the website or use <code>/subscribe &lt;hub-slug&gt;</code> to start receiving intelligence.",
@@ -368,7 +368,7 @@ bot.command('subscribe', async (ctx) => {
   const slug = ctx.match?.trim();
   
   if (!slug) {
-    const keyboard = new InlineKeyboard().url("🌐 Browse Hubs", "https://xentara-consumer-pwa.vercel.app/");
+    const keyboard = new InlineKeyboard().url("🌐 Browse Hubs", "https://xentara-reader.growthhq.biz");
     return ctx.reply('Please specify a hub slug. Example: `/subscribe tech-news` \n\nYou can find slugs on the Xentara Browser.', { 
         parse_mode: 'Markdown',
         reply_markup: keyboard
@@ -490,7 +490,7 @@ bot.command('help', async (ctx) => {
     "❓ <b>Xentara Help & Instructions</b>\n\n" +
     "To use this bot, you must connect it to your Xentara Profile.\n\n" +
     "<b>Steps to connect:</b>\n" +
-    "1. Register at <a href=\"https://xentara-consumer-pwa.vercel.app/\">Xentara Browser</a>\n" +
+    "1. Register at <a href=\"https://xentara-reader.growthhq.biz\">Xentara Browser</a>\n" +
     "2. Visit your Profile and generate a 6-digit Link Code\n" +
     "3. Use /link <code>&lt;your-code&gt;</code> here\n\n" +
     "<b>Commands:</b>\n" +
@@ -503,12 +503,12 @@ bot.command('help', async (ctx) => {
 
   const keyboard = new InlineKeyboard();
   if (!isLinked) {
-    keyboard.url("🔑 Register on PWA", "https://xentara-consumer-pwa.vercel.app/").row();
+    keyboard.url("🔑 Register on PWA", "https://xentara-reader.growthhq.biz").row();
     keyboard.text("❓ How it works", "how_it_works");
   } else {
     keyboard.text("📋 My Hubs", "my_subscriptions");
     keyboard.text("🔍 Explore Hubs", "browse_hubs").row();
-    keyboard.url("🌐 Visit PWA", "https://xentara-consumer-pwa.vercel.app/");
+    keyboard.url("🌐 Visit PWA", "https://xentara-reader.growthhq.biz");
   }
 
   await ctx.reply(helpText, { 

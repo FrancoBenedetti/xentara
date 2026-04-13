@@ -21589,3 +21589,17 @@ t=2026-04-12T07:33:33+0200 lvl=eror msg="failed to reconnect session" obj=tunnel
 t=2026-04-12T07:33:41+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
 t=2026-04-12T07:34:02+0200 lvl=info msg="client session established" obj=tunnels.session
 t=2026-04-12T07:34:02+0200 lvl=info msg="tunnel session started" obj=tunnels.session
+t=2026-04-13T08:56:32+0200 lvl=eror msg="heartbeat timeout, terminating session" obj=tunnels.session obj=csess id=e70d0413200c clientid=44d1022511981df9b0ff7186c71b300c
+t=2026-04-13T08:56:32+0200 lvl=eror msg="session closed, starting reconnect loop" obj=tunnels.session obj=csess id=70fd085b6f95 err="session closed"
+t=2026-04-13T08:56:32+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:56:32+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:56:33+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:56:35+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:56:39+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:56:47+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:57:03+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:57:33+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:58:04+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: server misbehaving"
+t=2026-04-13T08:58:39+0200 lvl=eror msg="failed to reconnect session" obj=tunnels.session err="failed to dial ngrok server with address \"connect.ngrok-agent.com:443\": dial tcp: lookup connect.ngrok-agent.com on 127.0.0.53:53: read udp 127.0.0.1:47741->127.0.0.53:53: i/o timeout"
+t=2026-04-13T08:59:13+0200 lvl=info msg="client session established" obj=tunnels.session
+t=2026-04-13T08:59:13+0200 lvl=info msg="tunnel session started" obj=tunnels.session
