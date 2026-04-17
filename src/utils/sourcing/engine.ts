@@ -55,7 +55,7 @@ export async function discoverRecentItems(source: any) {
             .from('publications')
             .select('id, source_id, hub_id')
             .eq('source_url', item.link)
-            .maybeSingle();
+            .maybeSingle() as { data: { id: string; source_id: string | null; hub_id: string } | null };
 
         if (existing) {
             // Adoption logic: If publication exists in this hub but has no source_id, link it.

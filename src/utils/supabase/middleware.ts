@@ -38,7 +38,25 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake can make it very hard to debug
   // issues with sessions being lost.
 
-  await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // 1. Protected routes: Redirect to login if no user
+  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    // Optional: add a redirect back parameter
+    // url.searchParams.set('next', request.nextUrl.pathname)
+    return NextResponse.redirect(url)
+  }
+
+  // 2. Auth routes: Redirect to dashboard if user already logged in
+  if (user && request.nextUrl.pathname.startsWith('/login')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }
