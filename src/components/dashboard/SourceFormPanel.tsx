@@ -1,7 +1,8 @@
 'use client'
 
 import { addSource, updateSource, createRouteRequest, searchRSSHubRoutesAction, previewRSSHubRouteAction } from '@/app/dashboard/actions'
-import { useState, useTransition, useEffect, useRef } from 'react'
+import { useState, useTransition, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { RSSHubRouteSuggestion } from '@/utils/sourcing/rsshub'
 import type { MonitoredSource } from '@/app/dashboard/actions'
 
@@ -14,6 +15,10 @@ interface SourceFormPanelProps {
 
 export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPanelProps) {
   const isEditing = Boolean(source)
+
+  // Only render the portal after hydration (document is available)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -140,7 +145,9 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
   }
   const sectionStyle: React.CSSProperties = { marginBottom: '1.1rem' }
 
-  return (
+  if (!mounted) return null
+
+  const content = (
     <>
       {/* Backdrop */}
       <div
@@ -443,4 +450,6 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
       `}</style>
     </>
   )
+
+  return createPortal(content, document.body)
 }
