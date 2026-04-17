@@ -30,7 +30,7 @@ export async function discoverRecentItems(source: any) {
         
         // Create a failure notice in the publications so the curator sees the issue
         const supabase = createServiceClient();
-        await supabase.from('publications').insert({
+        await supabase.from('publications' as never).insert({
             hub_id: source.hub_id,
             source_id: source.id,
             title: `NEURAL FAULT: Discovery Failed`,
@@ -52,7 +52,7 @@ export async function discoverRecentItems(source: any) {
     for (const item of batch) {
         // 1. Check uniqueness
         const { data: existing } = await supabase
-            .from('publications')
+            .from('publications' as never)
             .select('id, source_id, hub_id')
             .eq('source_url', item.link)
             .maybeSingle() as { data: { id: string; source_id: string | null; hub_id: string } | null };
@@ -62,7 +62,7 @@ export async function discoverRecentItems(source: any) {
             if (!existing.source_id && existing.hub_id === source.hub_id) {
                 console.log(`[Discovery] Adopting orphan publication: ${item.link}`);
                 await supabase
-                    .from('publications')
+                    .from('publications' as never)
                     .update({ 
                         source_id: source.id,
                         title: item.title 
@@ -88,7 +88,7 @@ export async function discoverRecentItems(source: any) {
 
         // 2. Create entry track
         const { data: pub, error: pubError } = await supabase
-            .from('publications')
+            .from('publications' as never)
             .insert({
                 hub_id: source.hub_id,
                 source_id: source.id,
