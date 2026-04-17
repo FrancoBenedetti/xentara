@@ -792,50 +792,196 @@
   color: white;
 }
 
-/* SOURCE FILTER CHIPS */
+/* SOURCE FILTER — DROPDOWN */
 .sourceFilterContainer {
   margin: 1.5rem 0;
   padding: 0.5rem 0;
+  position: relative;
+  z-index: 30;
 }
 
-.sourceFilterScroll {
+.sourceFilterDropdownWrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.sourceFilterTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  min-width: 180px;
+  max-width: 340px;
+}
+
+.sourceFilterTrigger:hover {
+  border-color: var(--indigo);
+  color: var(--text-main);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.sourceFilterTriggerActive {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  background: var(--indigo-soft);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
+}
+
+.sourceFilterDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.sourceFilterLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.sourceFilterCount {
+  font-size: 0.6rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  opacity: 0.7;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.sourceFilterChevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  opacity: 0.6;
+}
+
+.sourceFilterChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Dropdown panel */
+.sourceFilterDropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 240px;
+  max-width: 340px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.08);
+  overflow: hidden;
+  animation: dropdownIn 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)  scale(1); }
+}
+
+.sourceDropdownItem {
   display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding: 0.5rem 0;
-  scrollbar-width: none;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+  border-radius: 0;
 }
 
-.sourceFilterScroll::-webkit-scrollbar {
+.sourceDropdownItem:hover {
+  background: rgba(99, 102, 241, 0.07);
+  color: var(--text-main);
+}
+
+.sourceDropdownItemActive {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--indigo) !important;
+}
+
+.sourceDropdownDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sourceDropdownName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sourceDropdownMeta {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.sourceDropdownType {
+  font-size: 0.55rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.sourceDropdownDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.25rem 0;
+}
+
+/* Legacy chip classes kept for reference */
+.sourceFilterScroll {
   display: none;
 }
 
 .sourceChip {
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  padding: 0.6rem 1.25rem;
-  border-radius: 2rem;
-  font-size: 0.7rem;
-  font-weight: 800;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-family: inherit;
-}
-
-.sourceChip:hover {
-  border-color: var(--indigo);
-  color: var(--text-main);
+  display: none;
 }
 
 .sourceChipActive {
-  background: var(--indigo);
-  border-color: var(--indigo);
-  color: white;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+  display: none;
 }
 
 .hubDetailLayout {

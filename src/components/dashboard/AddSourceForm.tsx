@@ -10,7 +10,7 @@ export default function AddSourceForm({ hubId }: { hubId: string }) {
   
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [type, setType] = useState('youtube')
+  const [type, setType] = useState('rsshub')
 
   // Search State
   const [searchTerm, setSearchTerm] = useState('')
@@ -101,7 +101,7 @@ export default function AddSourceForm({ hubId }: { hubId: string }) {
     setSuggestions([])
     setPreviewRoute(null)
     setPreviewItems([])
-    setType('youtube')
+    setType('rsshub')
     setShowRequestForm(false)
   }
 
@@ -192,9 +192,9 @@ export default function AddSourceForm({ hubId }: { hubId: string }) {
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Source Type</label>
           <select name="type" value={type} onChange={(e) => setType(e.target.value)} style={{ width: '100%', background: 'var(--bg-surface)', colorScheme: 'dark', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '0.4rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>
-            <option value="youtube">YouTube</option>
-            <option value="rss">Standard RSS Feed</option>
             <option value="rsshub">RSSHub Managed Route</option>
+            <option value="rss">Standard RSS Feed</option>
+            <option value="youtube">YouTube</option>
           </select>
         </div>
 
