@@ -55,7 +55,7 @@ export const discoverNewContentRecurring = (inngest as any).createFunction(
 export const processIntelligencePipeline = (inngest as any).createFunction(
   { id: "xentara-intelligence-pipeline", triggers: [{ event: "xentara/publication.detected" }] },
   async ({ event, step }: any) => {
-    const { publicationId, sourceUrl, type } = event.data;
+    const { publicationId, sourceUrl, type, hasContent } = event.data;
 
     try {
         console.log(`[PIPELINE START] Processing Publication ID: ${publicationId} (URL: ${sourceUrl})`);
@@ -68,6 +68,26 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         console.log(`[PIPELINE] Fetching raw content for: ${sourceUrl}`);
         const rawData = await step.run("fetch-raw-content", async () => {
             const supabase = createServiceClient();
+
+            // If content was pre-loaded during discovery (RSS/RSSHub), use it directly
+            if (hasContent) {
+                const { data: existingPub } = await (supabase.from('publications') as any)
+                    .select('title, raw_content')
+                    .eq('id', publicationId)
+                    .single();
+
+                if (existingPub?.raw_content) {
+                    await (supabase.from('publications') as any)
+                        .update({ status: 'transcribing' })
+                        .eq('id', publicationId);
+                    return {
+                        title: existingPub.title,
+                        content: existingPub.raw_content,
+                        metadata: { has_transcript: true, sourceType: type }
+                    };
+                }
+            }
+
             await (supabase.from('publications') as any).update({ status: 'transcribing' }).eq('id', publicationId).throwOnError();
             return await ingestContent(sourceUrl, type || 'youtube');
         });

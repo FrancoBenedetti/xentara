@@ -15,9 +15,11 @@ export async function discoverRecentItems(source: any) {
         if (source.type === 'youtube') {
             items = await fetchLatestVideosFromChannel(source.url);
         } else if (source.type === 'rss') {
-            items = await fetchLatestArticlesFromFeed(source.url);
+            const res = await fetchLatestArticlesFromFeed(source.url);
+            items = res.items;
         } else if (source.type === 'rsshub') {
-            items = await fetchLatestArticlesFromFeed(resolveRSSHubFeedUrl(source.url));
+            const res = await fetchLatestArticlesFromFeed(resolveRSSHubFeedUrl(source.url));
+            items = res.items;
         }
         
         if (items.length === 0) {
@@ -51,11 +53,38 @@ export async function discoverRecentItems(source: any) {
         // 1. Check uniqueness
         const { data: existing } = await supabase
             .from('publications')
-            .select('id')
+            .select('id, source_id, hub_id')
             .eq('source_url', item.link)
-            .single();
+            .maybeSingle();
 
-        if (existing) continue;
+        if (existing) {
+            // Adoption logic: If publication exists in this hub but has no source_id, link it.
+            if (!existing.source_id && existing.hub_id === source.hub_id) {
+                console.log(`[Discovery] Adopting orphan publication: ${item.link}`);
+                await supabase
+                    .from('publications')
+                    .update({ 
+                        source_id: source.id,
+                        title: item.title 
+                    } as any)
+                    .eq('id', existing.id);
+                
+                newItemsCount++;
+                
+                // Trigger pipeline to ensure it's fully processed
+                await inngest.send({
+                    name: "xentara/publication.detected",
+                    data: { 
+                        publicationId: existing.id, 
+                        sourceUrl: item.link, 
+                        hubId: source.hub_id,
+                        type: source.type,
+                        hasContent: !!item.content
+                    }
+                });
+            }
+            continue;
+        }
 
         // 2. Create entry track
         const { data: pub, error: pubError } = await supabase
@@ -65,7 +94,8 @@ export async function discoverRecentItems(source: any) {
                 source_id: source.id,
                 title: item.title,
                 source_url: item.link,
-                status: 'raw'
+                raw_content: item.content || null,
+                status: item.content ? 'transcribed' : 'raw'
             } as any)
             .select()
             .single();
@@ -85,7 +115,8 @@ export async function discoverRecentItems(source: any) {
                     publicationId: (pub as any).id, 
                     sourceUrl: item.link, 
                     hubId: source.hub_id,
-                    type: source.type 
+                    type: source.type,
+                    hasContent: !!item.content
                 }
             });
         } catch (inngestError) {
@@ -110,7 +141,7 @@ export async function ingestContent(url: string, type: string) {
     }
     
     if (type === 'rss' || type === 'rsshub') {
-        const feedData = await fetchRSSMetadata(type === 'rsshub' ? resolveRSSHubFeedUrl(url) : url);
+        const feedData = await fetchRSSMetadata(url);
         return {
             title: feedData.title,
             content: feedData.content,

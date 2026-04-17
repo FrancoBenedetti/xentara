@@ -3,6 +3,12 @@ import Parser from 'rss-parser';
 const parser = new Parser({
     headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+    },
+    customFields: {
+        item: [
+            ['content:encoded', 'content:encoded'],
+            ['description', 'description'],
+        ]
     }
 });
 /**
@@ -23,12 +29,21 @@ export async function fetchLatestArticlesFromFeed(url: string) {
         
         const xml = await response.text();
         const feed = await parser.parseString(xml);
-        return feed.items.map(item => ({
-            id: item.guid || item.link,
-            title: item.title,
-            link: item.link,
-            pubDate: item.pubDate
-        }));
+        
+        return {
+            metadata: {
+                title: feed.title,
+                description: feed.description,
+                link: feed.link,
+            },
+            items: feed.items.map(item => ({
+                id: item.guid || item.link,
+                title: item.title,
+                link: item.link,
+                pubDate: item.pubDate,
+                content: item['content:encoded'] || (item as any).content || item.contentSnippet || null,
+            }))
+        };
     } catch (error: any) {
         console.error("RSS Discovery Error:", error.message);
         throw error;
@@ -50,8 +65,8 @@ export async function fetchRSSMetadata(url: string) {
     
     const html = await response.text();
     
-    const titleMatch = html.match(/<title>(.*?)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : "RSS Article";
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : "Untitled Article";
 
     const cleanContent = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') 
@@ -75,7 +90,7 @@ export async function fetchRSSMetadata(url: string) {
   } catch (error: any) {
     console.error("Deep RSS Ingestion Failed for " + url, error.message);
     return {
-        title: "RSS Feed Entry",
+        title: "Content Unavailable",
         content: "Draft content: Automated ingestion failed to scrape full body.",
         metadata: { source_url: url, status: "failed", error: error.message }
     };
