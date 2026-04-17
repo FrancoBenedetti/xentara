@@ -516,3 +516,64 @@ export async function reprocessPublication(id: string, url: string) {
 
   revalidatePath('/dashboard')
 }
+
+/**
+ * RSSHUB INTEGRATION
+ */
+
+export async function createRouteRequest(hubId: string | null, targetUrl: string, instructions?: string, accessNotes?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await supabase
+    .from('route_requests' as never)
+    .insert({
+      requested_by: user.id,
+      requested_by_hub_id: hubId,
+      target_url: targetUrl,
+      instructions: instructions || null,
+      access_notes: accessNotes || null,
+      status: 'pending'
+    } as never)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+  return { success: true }
+}
+
+export async function getRouteRequests() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('route_requests' as never)
+    .select('*')
+    .eq('requested_by', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching route requests:', error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function searchRSSHubRoutesAction(searchTerm: string) {
+  // Dynamic import to avoid module issues edge vs server
+  const { findRSSHubRoutes } = await import('@/utils/sourcing/rsshub')
+  return await findRSSHubRoutes(searchTerm)
+}
+
+export async function previewRSSHubRouteAction(routePath: string) {
+  const { RSSHUB_BASE_URL } = await import('@/utils/sourcing/rsshub')
+  const origin = RSSHUB_BASE_URL.replace(/\/$/, "");
+  const base = routePath.startsWith("/") ? routePath : `/${routePath}`;
+  const url = `${origin}${base}`;
+  
+  const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}format=json`, { cache: 'no-store' })
+  if (!res.ok) throw new Error("Could not load preview")
+  return await res.json()
+}

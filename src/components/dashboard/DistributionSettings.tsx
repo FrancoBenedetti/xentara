@@ -90,7 +90,7 @@ export default function DistributionSettings({ hubId, initialChannels, logs }: {
         <form onSubmit={handleAdd} style={{ background: 'var(--surface-color)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '3rem' }}>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-main)' }}>Platform</label>
-            <select name="platform" required style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text-main)' }}>
+            <select name="platform" required style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text-main)', colorScheme: 'dark' }}>
               <option value="telegram">Telegram</option>
               <option value="whatsapp" disabled>WhatsApp (Coming soon)</option>
             </select>

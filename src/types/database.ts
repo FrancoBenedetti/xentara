@@ -175,7 +175,7 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      source_type: 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual'
+      source_type: 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual' | 'rsshub'
       publication_status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed'
     }
   }
@@ -185,3 +185,21 @@ export type Hub = Database['public']['Tables']['hubs']['Row']
 export type Board = Database['public']['Tables']['boards']['Row']
 export type MonitoredSource = Database['public']['Tables']['monitored_sources']['Row']
 export type Publication = Database['public']['Tables']['publications']['Row']
+
+export interface RouteRequest {
+  id: string
+  created_at: string
+  updated_at: string
+  requested_by: string
+  requested_by_hub_id: string | null
+  target_url: string
+  instructions: string | null
+  access_notes: string | null
+  status: 'pending' | 'in_progress' | 'completed' | 'rejected' | 'failed'
+  rsshub_namespace: string | null
+  rsshub_route_path: string | null
+  rsshub_example_url: string | null
+  resolution_notes: string | null
+  resolved_at: string | null
+  resolved_by: string | null
+}

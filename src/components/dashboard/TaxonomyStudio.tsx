@@ -86,7 +86,7 @@ export default function TaxonomyStudio({
           value={selectedHubId} 
           onChange={(e) => setSelectedHubId(e.target.value)}
           className={styles.input}
-          style={{ width: '200px' }}
+          style={{ width: '200px', colorScheme: 'dark', background: 'var(--bg-surface)' }}
         >
           {hubs.map(hub => (
             <option key={hub.id} value={hub.id}>{hub.name}</option>
@@ -125,7 +125,7 @@ export default function TaxonomyStudio({
                          value={mergeTargetId} 
                          onChange={(e) => setMergeTargetId(e.target.value)}
                          className={styles.input}
-                         style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem' }}
+                         style={{ flex: 1, padding: '0.4rem', fontSize: '0.75rem', colorScheme: 'dark', background: 'var(--bg-surface)' }}
                        >
                          <option value="">Select Target...</option>
                          {taxonomy.confirmed.map(t => (

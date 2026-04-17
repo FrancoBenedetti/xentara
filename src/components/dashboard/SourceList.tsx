@@ -1,6 +1,6 @@
 'use client'
 
-import { getSources } from '@/app/dashboard/actions'
+import { getSources, getRouteRequests } from '@/app/dashboard/actions'
 import DeleteSourceButton from './DeleteSourceButton'
 import EditSourceButton from './EditSourceButton'
 import RefreshSourceButton from './RefreshSourceButton'
@@ -8,12 +8,14 @@ import { useEffect, useState } from 'react'
 
 export default function SourceList({ hubId }: { hubId: string }) {
   const [sources, setSources] = useState<any[]>([])
+  const [routeRequests, setRouteRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   
   // Load sources
   useEffect(() => {
-    getSources(hubId).then(data => {
+    Promise.all([getSources(hubId), getRouteRequests()]).then(([data, reqs]) => {
       setSources(data)
+      setRouteRequests(reqs)
       setLoading(false)
     })
   }, [hubId])
@@ -73,6 +75,34 @@ export default function SourceList({ hubId }: { hubId: string }) {
             );
           })}
         </ul>
+      )}
+
+      {routeRequests.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <h4 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--indigo)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>
+            Route Requests
+          </h4>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {routeRequests.map((req) => (
+              <li key={req.id} style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: '0.75rem', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                <div style={{ fontWeight: 900, fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
+                  {req.target_url}
+                </div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 700 }}>
+                  STATUS: <span style={{ color: req.status === 'completed' ? '#10b981' : req.status === 'failed' ? '#ef4444' : 'var(--indigo)' }}>{req.status.toUpperCase()}</span>
+                </div>
+                {req.status === 'completed' && req.rsshub_route_path && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-main)', marginTop: '0.5rem', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '0.25rem' }}>
+                    <strong>Route Path:</strong> {req.rsshub_route_path}
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                      Copy this path and add as a new RSSHub source. 
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

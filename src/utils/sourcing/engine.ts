@@ -1,5 +1,6 @@
 import { fetchLatestVideosFromChannel, fetchYoutubeMetadata } from './youtube';
 import { fetchLatestArticlesFromFeed, fetchRSSMetadata } from './rss';
+import { resolveRSSHubFeedUrl } from './rsshub';
 import { inngest } from '@/inngest/client';
 import { createServiceClient } from '@/utils/supabase/service';
 
@@ -15,6 +16,8 @@ export async function discoverRecentItems(source: any) {
             items = await fetchLatestVideosFromChannel(source.url);
         } else if (source.type === 'rss') {
             items = await fetchLatestArticlesFromFeed(source.url);
+        } else if (source.type === 'rsshub') {
+            items = await fetchLatestArticlesFromFeed(resolveRSSHubFeedUrl(source.url));
         }
         
         if (items.length === 0) {
@@ -106,14 +109,14 @@ export async function ingestContent(url: string, type: string) {
         };
     }
     
-    if (type === 'rss') {
-        const feedData = await fetchRSSMetadata(url);
+    if (type === 'rss' || type === 'rsshub') {
+        const feedData = await fetchRSSMetadata(type === 'rsshub' ? resolveRSSHubFeedUrl(url) : url);
         return {
             title: feedData.title,
             content: feedData.content,
             metadata: {
                 ...feedData.metadata,
-                sourceType: 'rss',
+                sourceType: type,
                 has_transcript: true // Text is natively analysis-ready
             }
         };

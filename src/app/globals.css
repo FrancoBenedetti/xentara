@@ -52,6 +52,12 @@ input, select {
     background-color: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text-main);
+    color-scheme: dark;
+}
+
+option {
+    background-color: var(--bg-primary);
+    color: var(--text-main);
 }
 
 input:focus {
