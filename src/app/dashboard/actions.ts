@@ -419,6 +419,35 @@ export async function updateHubBranding(id: string, formData: FormData) {
 /**
  * TAXONOMY MANAGEMENT
  */
+
+/** Lightweight count-only query — no row data fetched */
+export async function getHubTagCounts(hubId: string): Promise<{ confirmed: number; unconfirmed: number }> {
+  const supabase = await createClient()
+  const [c, u] = await Promise.all([
+    (supabase.from('hub_tags' as never) as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('hub_id', hubId)
+      .eq('is_confirmed', true),
+    (supabase.from('hub_tags' as never) as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('hub_id', hubId)
+      .eq('is_confirmed', false),
+  ])
+  return { confirmed: c.count ?? 0, unconfirmed: u.count ?? 0 }
+}
+
+/** Fetch id + name only for confirmed tags — used for chip rendering */
+export async function getConfirmedTagNames(hubId: string): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient()
+  const { data } = await (supabase.from('hub_tags' as never) as any)
+    .select('id, name')
+    .eq('hub_id', hubId)
+    .eq('is_confirmed', true)
+    .order('name', { ascending: true })
+  return (data as { id: string; name: string }[]) || []
+}
+
+/** Full fetch — used by Taxonomy Studio (capped at 200 rows) */
 export async function getHubTags(hubId: string): Promise<HubTag[]> {
   const supabase = await createClient()
   const { data } = await supabase
@@ -427,6 +456,7 @@ export async function getHubTags(hubId: string): Promise<HubTag[]> {
     .eq('hub_id', hubId)
     .order('is_confirmed', { ascending: true })
     .order('created_at', { ascending: false })
+    .limit(200)
 
   return (data as unknown as HubTag[]) || []
 }

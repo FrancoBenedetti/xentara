@@ -52,6 +52,7 @@ export default async function TaxonomyPage({ searchParams }: { searchParams: Pro
           <TaxonomyStudio 
              initialHubs={hubs.map(h => ({ id: h.id, name: h.name }))}
              initialTaxonomy={taxonomy}
+             selectedHubId={selectedHubId}
           />
         )}
       </div>
