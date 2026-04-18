@@ -53,6 +53,36 @@ export async function deleteTag(tagId: string) {
   return { success: true }
 }
 
+export async function bulkConfirmTags(tagIds: string[]) {
+  if (!tagIds.length) return { success: true }
+  
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('hub_tags')
+    .update({ is_confirmed: true })
+    .in('id', tagIds)
+
+  if (error) throw new Error(error.message)
+  
+  revalidatePath('/dashboard/taxonomy')
+  return { success: true }
+}
+
+export async function bulkDeleteTags(tagIds: string[]) {
+  if (!tagIds.length) return { success: true }
+  
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('hub_tags')
+    .delete()
+    .in('id', tagIds)
+
+  if (error) throw new Error(error.message)
+  
+  revalidatePath('/dashboard/taxonomy')
+  return { success: true }
+}
+
 export async function mergeTags(sourceTagId: string, targetTagId: string) {
   const supabase = await createClient()
 

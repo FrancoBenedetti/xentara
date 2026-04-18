@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmTag, deleteTag, mergeTags } from '@/app/dashboard/taxonomy/actions'
+import { confirmTag, deleteTag, mergeTags, bulkConfirmTags, bulkDeleteTags } from '@/app/dashboard/taxonomy/actions'
 import { addHubTag, updateHubTag } from '@/app/dashboard/actions'
 import styles from '@/app/dashboard/dashboard.module.css'
 
@@ -44,6 +44,7 @@ export default function TaxonomyStudio({
   const [mergeTargetId, setMergeTargetId] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [newTag, setNewTag] = useState({ name: '', description: '' })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
 
   // ── Derived lists ──────────────────────────────────────────────────────────
@@ -175,6 +176,60 @@ export default function TaxonomyStudio({
     })
   }
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAllSelection = () => {
+    const pageIds = pagedTags.map(t => t.id)
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.has(id))
+    
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) {
+        pageIds.forEach(id => next.delete(id))
+      } else {
+        pageIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const handleBulkConfirm = useCallback(() => {
+    const ids = Array.from(selectedIds)
+    if (!ids.length) return
+    startTransition(async () => {
+      await bulkConfirmTags(ids)
+      setTaxonomy(prev => {
+        const toConfirm = prev.unconfirmed.filter(t => ids.includes(t.id))
+        return {
+          confirmed: [...prev.confirmed, ...toConfirm.map(t => ({ ...t, is_confirmed: true }))].sort((a, b) => a.name.localeCompare(b.name)),
+          unconfirmed: prev.unconfirmed.filter(t => !ids.includes(t.id)),
+        }
+      })
+      setSelectedIds(new Set())
+    })
+  }, [selectedIds])
+
+  const handleBulkDelete = useCallback(() => {
+    const ids = Array.from(selectedIds)
+    if (!ids.length) return
+    if (!confirm(`Delete ${ids.length} selected flavors?`)) return
+    startTransition(async () => {
+      await bulkDeleteTags(ids)
+      setTaxonomy(prev => ({
+        confirmed: prev.confirmed.filter(t => !ids.includes(t.id)),
+        unconfirmed: prev.unconfirmed.filter(t => !ids.includes(t.id)),
+      }))
+      setSelectedIds(new Set())
+    })
+  }, [selectedIds])
+
   // ── Shared style helpers ───────────────────────────────────────────────────
 
   const btn = (variant: 'primary' | 'ghost' | 'danger' | 'success'): React.CSSProperties => ({
@@ -253,6 +308,13 @@ export default function TaxonomyStudio({
       >
         {/* Main row */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '0.7rem 1rem', gap: '0.75rem' }}>
+          {/* Selection Checkbox */}
+          <input 
+            type="checkbox" 
+            checked={selectedIds.has(tag.id)} 
+            onChange={() => toggleSelection(tag.id)}
+            style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer', accentColor: 'var(--indigo)' }}
+          />
           {/* Expand toggle + name */}
           <button
             onClick={() => setExpandedId(isExpanded ? null : tag.id)}
@@ -443,6 +505,33 @@ export default function TaxonomyStudio({
             SAVE LENS
           </button>
         </form>
+      )}
+
+      {/* Bulk Action Toolbar */}
+      {selectedIds.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.1)', border: '1px solid var(--indigo)', borderRadius: '0.75rem', marginBottom: '1rem' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--indigo)' }}>{selectedIds.size} selected</span>
+          <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto', flexWrap: 'wrap' }}>
+            {Array.from(selectedIds).some(id => taxonomy.unconfirmed.find(t => t.id === id)) && (
+              <button style={btn('success')} onClick={handleBulkConfirm} disabled={isPending}>APPROVE SELECTED</button>
+            )}
+            <button style={btn('danger')} onClick={handleBulkDelete} disabled={isPending}>DELETE SELECTED</button>
+            <button style={btn('ghost')} onClick={() => setSelectedIds(new Set())}>CLEAR</button>
+          </div>
+        </div>
+      )}
+
+      {/* Select All Checkbox for current page */}
+      {pagedTags.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem 0.5rem', gap: '0.5rem' }}>
+          <input 
+            type="checkbox" 
+            checked={pagedTags.length > 0 && pagedTags.every(t => selectedIds.has(t.id))}
+            onChange={toggleAllSelection}
+            style={{ width: '1.1rem', height: '1.1rem', cursor: 'pointer', accentColor: 'var(--indigo)' }}
+          />
+          <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>Select All on Page</span>
+        </div>
       )}
 
       {/* List */}
