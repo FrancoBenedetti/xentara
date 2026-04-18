@@ -331,7 +331,7 @@ export async function getRecentPublications(hubId: string, sourceId?: string): P
 
   const { data } = await query
     .order('created_at', { ascending: false })
-    .limit(20)
+    .limit(50)
 
   return (data as unknown as Publication[]) || []
 }
@@ -606,4 +606,15 @@ export async function previewRSSHubRouteAction(routePath: string) {
   const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}format=json`, { cache: 'no-store' })
   if (!res.ok) throw new Error("Could not load preview")
   return await res.json()
+}
+export async function purgePublications(ids: string[]) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('publications' as never)
+    .delete()
+    .in('id', ids)
+    .eq('is_published', false)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
 }

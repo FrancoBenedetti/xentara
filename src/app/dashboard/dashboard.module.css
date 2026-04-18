@@ -190,7 +190,7 @@
 }
 
 .feedScrollArea {
-  max-height: 600px;
+  max-height: calc(100vh - 280px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
