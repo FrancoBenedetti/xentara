@@ -44,10 +44,25 @@ export async function discoverRecentItems(source: any) {
     }
 
     const supabase = createServiceClient();
+    
+    // Update last_fetched_at immediately to show activity
+    await (supabase.from('monitored_sources' as any) as any)
+        .update({ last_fetched_at: new Date().toISOString() } as any)
+        .eq('id', source.id);
+
     let newItemsCount = 0;
 
     // Process up to 10 latest items to populate the board quickly
     const batch = items.slice(0, 10);
+
+    // If we successfully found items, clear any previous "Discovery Failed" notices for this source
+    if (items.length > 0) {
+        await (supabase.from('publications' as any) as any)
+            .delete()
+            .eq('source_id', source.id)
+            .eq('status', 'failed')
+            .ilike('title', '%Discovery Failed%');
+    }
 
     for (const item of batch) {
         // 1. Check uniqueness

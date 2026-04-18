@@ -313,6 +313,8 @@ export async function refreshSource(id: string, url: string, type: string) {
     console.error("Inngest refresh failed. Check if Inngest Dev Server is running.", inngestError);
     throw new Error("Unable to trigger background refresh. Please ensure Inngest is active.");
   }
+
+  revalidatePath('/dashboard')
 }
 
 /**
