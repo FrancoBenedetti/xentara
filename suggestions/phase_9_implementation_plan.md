@@ -6,25 +6,32 @@ This phase implements the **Engagement & Feedback Agent**, completing the "Intel
 
 To transform one-way broadcasting into a two-way intelligence exchange. Curators get high-signal data on what their audience values, powered by AI-driven sentiment analysis of incoming comments. Feedback is natively **Hub-Centric**, ensuring engagement is tracked against specific intelligence contexts regardless of the distribution channel.
 
+**Core design principle (revised):** Available reactions and whether comment capture is enabled are **configurable per Hub** by the hub owner/curator, selected from a platform-defined base set. No hub is forced to use a generic vocabulary — a niche professional hub may want `🎯 Actionable | ❓ Need Context`, while a consumer news hub may prefer `👍 Helpful | 🔥 Trending | 👎 Not for me`.
+
 ---
 
-## Current State (Post-Phase 8)
+## Current State (Post-Phase 8 + Phase 9 Partial Implementation)
 
-| Layer                        | Status                                                                              |
-| :--------------------------- | :---------------------------------------------------------------------------------- |
-| **Telegram Bot**             | ✅ Commands (`/start`, `/link`, `/subscribe`, `/myhubs`, `/chatid`, `/help`)         |
-| **Distribution Agent**       | ✅ Inngest function pushes to channels and subscriber DMs                           |
-| **Inline Buttons (Current)** | ✅ `🧠 Read Intelligence` (viewer URL) + `🔗 Source Article` (source URL)            |
-| **Distribution Log**         | ✅ Tracks every push with `message_id` for traceability                             |
-| **Engagement Tracking**      | ❌ No reaction/comment capture — publications are fire-and-forget                   |
-| **Feedback Analysis**        | ❌ No sentiment analysis on consumer responses                                      |
-| **Intelligence Dashboard**   | ❌ No curator-facing view of how publications are received                           |
+| Layer                              | Status                                                                                         |
+| :--------------------------------- | :--------------------------------------------------------------------------------------------- |
+| **Telegram Bot**                   | ✅ Commands (`/start`, `/link`, `/subscribe`, `/myhubs`, `/chatid`, `/help`)                   |
+| **Distribution Agent**             | ✅ Inngest function pushes to channels and subscriber DMs                                      |
+| **Inline Buttons (Current)**       | ✅ `🧠 Read Intelligence` + `🔗 Source Article` + **hardcoded** `🧠 👍 👎` reaction row        |
+| **Distribution Log**               | ✅ Tracks every push with `message_id` for traceability                                        |
+| **`publication_engagement` Table** | ✅ Migrated — schema, indexes, RLS all in place                                                |
+| **Reaction Callback Handler**      | ✅ Implemented in `bot.ts` — toggle on/off, shadow profile support                             |
+| **Reply-to-Comment Handler**       | ✅ Implemented in `bot.ts` — traces replies via `distribution_log.message_id`                  |
+| **`findOrCreateMessengerIdentity`**| ✅ Helper implemented in `bot.ts`                                                              |
+| **Inngest Feedback Analyst**       | ✅ Sentiment scoring via `analyzeSentiment` in `engagement.ts`                                 |
+| **Intelligence Dashboard**         | ✅ Page at `/dashboard/hubs/[slug]/intelligence` with stat cards, pub breakdown, comment inbox  |
+| **Per-Hub Engagement Config**      | ❌ Not yet — reactions are hardcoded in distribution agent, bot, and dashboard                  |
+| **Engagement Config UI**           | ❌ No curator-facing panel to select reactions or toggle comments                              |
 
 ---
 
 ## 1. Database Schema
 
-### [NEW] `supabase/migrations/20260412000000_engagement_engine.sql`
+### ✅ [DONE] `supabase/migrations/20260412000000_engagement_engine.sql`
 
 #### Table: `publication_engagement`
 
@@ -41,409 +48,438 @@ CREATE TABLE public.publication_engagement (
     sentiment_score        DOUBLE PRECISION,
     metadata               JSONB DEFAULT '{}'::jsonb,
     created_at             TIMESTAMPTZ DEFAULT now() NOT NULL,
-    -- Prevent duplicate reactions from the same user on the same publication
     UNIQUE NULLS NOT DISTINCT (publication_id, messenger_identity_id, type, value)
 );
+```
 
-CREATE INDEX idx_engagement_publication_id ON public.publication_engagement(publication_id);
-CREATE INDEX idx_engagement_hub_id ON public.publication_engagement(hub_id);
-CREATE INDEX idx_engagement_consumer_id ON public.publication_engagement(consumer_id) WHERE consumer_id IS NOT NULL;
-CREATE INDEX idx_engagement_messenger_id ON public.publication_engagement(messenger_identity_id) WHERE messenger_identity_id IS NOT NULL;
+**Design notes:**
+- **`hub_id` is explicit** — cheaper RLS evaluation, direct hub-level queries.
+- **Unique constraint on reactions** — same user cannot submit the same reaction twice (toggle deduplication).
+- **`consumer_id` nullable** — unlinked shadow profiles tracked via `messenger_identity_id`.
+- `value` stores any string key — historical records remain valid even when hub config changes.
 
-ALTER TABLE public.publication_engagement ENABLE ROW LEVEL SECURITY;
+---
 
--- Service role writes (bot/Inngest). Curators can read for their hubs.
-CREATE POLICY "Curators can view engagement for their hubs"
-ON public.publication_engagement FOR SELECT
+### 🔲 [NEW] `supabase/migrations/20260418000000_hub_engagement_config.sql`
+
+This is the primary schema addition required by the per-hub configurable reactions requirement.
+
+```sql
+CREATE TABLE public.hub_engagement_config (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    hub_id              UUID NOT NULL UNIQUE REFERENCES public.hubs(id) ON DELETE CASCADE,
+    reactions_enabled   TEXT[] NOT NULL DEFAULT ARRAY['insight', 'helpful', 'irrelevant'],
+    comments_enabled    BOOLEAN NOT NULL DEFAULT true,
+    updated_at          TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- Keep updated_at fresh
+CREATE TRIGGER update_hub_engagement_config_updated_at
+    BEFORE UPDATE ON public.hub_engagement_config
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE INDEX idx_hub_engagement_config_hub_id ON public.hub_engagement_config(hub_id);
+
+ALTER TABLE public.hub_engagement_config ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Hub members can view engagement config"
+ON public.hub_engagement_config FOR SELECT
 USING (
   EXISTS (
     SELECT 1 FROM public.hub_memberships hm
-    WHERE hm.hub_id = public.publication_engagement.hub_id
+    WHERE hm.hub_id = public.hub_engagement_config.hub_id
     AND hm.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Hub owners and editors can manage engagement config"
+ON public.hub_engagement_config FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.hub_memberships hm
+    WHERE hm.hub_id = public.hub_engagement_config.hub_id
+    AND hm.user_id = auth.uid()
+    AND hm.role IN ('owner', 'editor')
   )
 );
 ```
 
 **Design notes:**
-
-- **`hub_id` is explicit** (not derived via JOIN through `publications`) — cheaper RLS evaluation and direct hub-level queries without joining.
-- **Unique constraint on reactions** prevents the same user from spamming the same reaction button. Comments are exempt (a user can reply multiple times).
-- **Partial indexes** on nullable FK columns — only index rows where the value is actually populated, saving space.
-- **`consumer_id` is nullable** — unlinked Telegram users (shadow profiles) still have their reactions tracked via `messenger_identity_id`. If/when they hydrate their identity later, a backfill query can populate `consumer_id`.
+- `reactions_enabled` is an ordered `TEXT[]` — the order drives Telegram button placement.
+- The default matches existing hardcoded behavior — existing hubs work without data migration.
+- A hub with no config row falls back to the application-level defaults (upsert-on-first-use pattern, no migration required for existing hubs).
 
 ---
 
-## 2. Distribution Agent Modification
+## 2. Platform Base Set (Shared Constant)
 
-### [MODIFY] `src/inngest/distribution.ts`
+### 🔲 [NEW] `src/lib/engagement/reactions.ts`
 
-The existing distribution agent already sends messages with inline buttons (`🧠 Read Intelligence`, `🔗 Source Article`). Phase 9 **adds reaction buttons** to the same message.
+The authoritative catalogue of available reactions. This lives in application code, not the database — evolving the base set requires no migration.
 
-**Current inline keyboard (Phase 8):**
+```typescript
+export type ReactionKey =
+  | 'insight'
+  | 'helpful'
+  | 'irrelevant'
+  | 'trending'
+  | 'share'
+  | 'question';
+
+export interface ReactionDefinition {
+  key: ReactionKey;
+  emoji: string;
+  label: string;
+  callbackLabel: string; // Shown in Telegram answerCallbackQuery toast
+}
+
+export const BASE_REACTION_SET: Record<ReactionKey, ReactionDefinition> = {
+  insight:    { key: 'insight',    emoji: '🧠', label: 'Insight',      callbackLabel: '🧠 Marked as Insight' },
+  helpful:    { key: 'helpful',    emoji: '👍', label: 'Helpful',      callbackLabel: '👍 Marked as Helpful' },
+  irrelevant: { key: 'irrelevant', emoji: '👎', label: 'Not for me',   callbackLabel: '👎 Noted' },
+  trending:   { key: 'trending',   emoji: '🔥', label: 'Trending',     callbackLabel: '🔥 Marked as Trending' },
+  share:      { key: 'share',      emoji: '🚀', label: 'Share-worthy', callbackLabel: '🚀 Worth Sharing' },
+  question:   { key: 'question',   emoji: '❓', label: 'Need context', callbackLabel: '❓ Context Requested' },
+};
+
+export const DEFAULT_REACTIONS: ReactionKey[] = ['insight', 'helpful', 'irrelevant'];
+
+/** Build reaction buttons for a Telegram inline keyboard row. */
+export function buildReactionButtons(
+  publicationId: string,
+  enabledReactions: string[]
+): Array<{ text: string; callback_data: string }> {
+  return enabledReactions
+    .filter((key): key is ReactionKey => key in BASE_REACTION_SET)
+    .map(key => ({
+      text: `${BASE_REACTION_SET[key].emoji} ${BASE_REACTION_SET[key].label}`,
+      callback_data: `react_${publicationId}_${key}`
+    }));
+}
 ```
-[ 🧠 Read Intelligence (URL) | 🔗 Source Article (URL) ]
-```
-
-**Updated inline keyboard (Phase 9):**
-```
-[ 🧠 Read Intelligence (URL) | 🔗 Source Article (URL) ]
-[ 🧠 Insight | 👍 Helpful | 👎 Not for me             ]
-```
-
-The second row uses `callback_data` values that encode the publication ID:
-
-| Button | `callback_data`           |
-| :----- | :------------------------ |
-| 🧠     | `react_{pubId}_insight`   |
-| 👍     | `react_{pubId}_helpful`   |
-| 👎     | `react_{pubId}_irrelevant`|
-
-**Why encode `pubId` and not `distributionLogId`?** Because feedback is Hub-Centric. A publication may be distributed to multiple channels, but all reactions roll up to the same publication regardless of where the user saw it.
-
-**Important:** The `distribution_log` already stores the Telegram `message_id` for each push. Phase 9's reply handler uses this to resolve which publication a Telegram reply corresponds to.
 
 ---
 
-## 3. Telegram Bot Updates
+## 3. Distribution Agent Modification
 
-### [MODIFY] `src/lib/telegram/bot.ts`
+### 🔲 [REVISE] `src/inngest/distribution.ts`
 
-Add two new handlers to the existing bot instance.
+The `fetch-distribution-context` step must be extended to retrieve `hub_engagement_config`. The reaction button row is then built dynamically.
 
-#### 3a. Reaction Callback Handler
-
+**Step 1 — Extend context fetch:**
 ```typescript
-bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
-  const publicationId = ctx.match[1];
-  const reactionType = ctx.match[2]; // 'insight' | 'helpful' | 'irrelevant'
-  const telegramId = ctx.from?.id;
-  if (!telegramId || !publicationId) return;
+const { data: engagementConfig } = await supabase
+  .from('hub_engagement_config')
+  .select('reactions_enabled, comments_enabled')
+  .eq('hub_id', hubId)
+  .maybeSingle();
 
-  const adminClient = createAdminClient();
-
-  // 1. Resolve or create messenger_identity (shadow profile support)
-  let identity = await findOrCreateMessengerIdentity(adminClient, telegramId, ctx.from?.username);
-
-  // 2. Resolve publication → hub_id
-  const { data: pub } = await adminClient
-    .from('publications')
-    .select('hub_id')
-    .eq('id', publicationId)
-    .single();
-
-  if (!pub) {
-    return ctx.answerCallbackQuery("Publication not found.");
+return {
+  publication,
+  hub,
+  channels: channels || [],
+  eligibleSubscribers,
+  engagementConfig: {
+    reactionsEnabled: engagementConfig?.reactions_enabled ?? DEFAULT_REACTIONS,
+    commentsEnabled:  engagementConfig?.comments_enabled  ?? true,
   }
+};
+```
 
-  // 3. Upsert engagement (unique constraint handles dedup)
-  const { error } = await adminClient
-    .from('publication_engagement')
-    .upsert({
-      publication_id: publicationId,
-      hub_id: pub.hub_id,
-      consumer_id: identity.consumer_id || null,
-      messenger_identity_id: identity.id,
-      platform: 'telegram',
-      type: 'reaction',
-      value: reactionType,
-      metadata: { chat_id: ctx.chat?.id }
-    }, { onConflict: 'publication_id,messenger_identity_id,type,value' });
+**Step 3/4 — Dynamic reaction row (channels and DMs):**
+```typescript
+import { buildReactionButtons } from '@/lib/engagement/reactions';
 
-  if (error) {
-    // If conflict → user already reacted with this emoji → toggle off (delete)
-    await adminClient
-      .from('publication_engagement')
-      .delete()
-      .eq('publication_id', publicationId)
-      .eq('messenger_identity_id', identity.id)
-      .eq('type', 'reaction')
-      .eq('value', reactionType);
+const row2 = buildReactionButtons(
+  publicationId,
+  context.engagementConfig.reactionsEnabled
+);
 
-    await ctx.answerCallbackQuery("Reaction removed.");
-  } else {
-    const labels: Record<string, string> = {
-      insight: "🧠 Marked as Insight",
-      helpful: "👍 Marked as Helpful",
-      irrelevant: "👎 Noted"
-    };
-    await ctx.answerCallbackQuery(labels[reactionType] || "Recorded!");
-  }
+// Only add reaction row if the hub has any reactions enabled
+const inlineKeyboard = row2.length > 0
+  ? [row1, row2]
+  : [row1];
+
+await bot.api.sendMessage(channel.channel_id, formatted.telegramPreview, {
+  parse_mode: 'HTML',
+  reply_markup: { inline_keyboard: inlineKeyboard }
 });
 ```
 
-**Key design decisions:**
-
-- **Toggle behavior**: Pressing the same button twice removes the reaction (standard UX pattern).
-- **Shadow profile support**: `findOrCreateMessengerIdentity()` is a helper that checks for an existing `messenger_identities` row. If none exists, it creates a shadow entry (`consumer_id = null`, `is_verified = false`). This means **unlinked users can still react**.
-- **No Inngest event for reactions**: Reactions are simple writes — no AI processing needed. Direct DB insert keeps latency low (the user sees the callback response instantly).
-
-#### 3b. Reply-to-Comment Handler
-
-```typescript
-bot.on('message', async (ctx) => {
-  // Only process replies to bot messages
-  if (!ctx.message?.reply_to_message) return;
-  if (!ctx.message.text) return;
-
-  const repliedToMessageId = ctx.message.reply_to_message.message_id.toString();
-  const chatId = ctx.chat.id.toString();
-  const telegramId = ctx.from?.id;
-  if (!telegramId) return;
-
-  const adminClient = createAdminClient();
-
-  // 1. Find which publication this message_id belongs to
-  const { data: logEntry } = await adminClient
-    .from('distribution_log')
-    .select('publication_id, publication:publications!inner(hub_id)')
-    .eq('message_id', repliedToMessageId)
-    .eq('target_id', chatId)
-    .eq('status', 'sent')
-    .single();
-
-  if (!logEntry) return; // Not a reply to a Xentara publication — ignore silently
-
-  // 2. Resolve messenger identity
-  const identity = await findOrCreateMessengerIdentity(adminClient, telegramId, ctx.from?.username);
-
-  // 3. Store the comment
-  await adminClient
-    .from('publication_engagement')
-    .insert({
-      publication_id: logEntry.publication_id,
-      hub_id: (logEntry.publication as any).hub_id,
-      consumer_id: identity.consumer_id || null,
-      messenger_identity_id: identity.id,
-      platform: 'telegram',
-      type: 'comment',
-      value: ctx.message.text.substring(0, 2000), // Safety truncation
-      metadata: {
-        chat_id: chatId,
-        message_id: ctx.message.message_id,
-        reply_to_message_id: repliedToMessageId
-      }
-    });
-
-  // 4. Emit Inngest event for sentiment analysis
-  try {
-    await inngest.send({
-      name: 'xentara/engagement.received',
-      data: {
-        publicationId: logEntry.publication_id,
-        hubId: (logEntry.publication as any).hub_id,
-        type: 'comment',
-        content: ctx.message.text.substring(0, 2000)
-      }
-    });
-  } catch (e) {
-    console.warn('Engagement event emission failed:', e);
-  }
-});
+**Current hardcoded inline keyboard (Phase 8/9 partial):**
+```
+[ 🧠 Read Intelligence (URL) | 🔗 Source Article (URL) ]
+[ 🧠 Insight | 👍 Helpful | 👎 Noted                  ]
 ```
 
-**Key design decisions:**
+**Updated dynamic inline keyboard (Phase 9 complete):**
+```
+[ 🧠 Read Intelligence (URL) | 🔗 Source Article (URL) ]
+[ <hub-configured reaction buttons from base set>       ]  ← omitted if none enabled
+```
 
-- **Uses existing `distribution_log.message_id`** to trace replies back to publications. No new lookup table needed.
-- **Silent ignore** if the replied-to message isn't a Xentara publication — avoids confusing users in groups where the bot is present.
-- **Comment text is truncated to 2000 chars** — prevents abuse while allowing meaningful feedback.
-- **Inngest event only fires for comments** (not reactions) since comments need sentiment analysis.
-- **Comments are visible to everyone** in groups/channels (per your decision). The bot does not delete, moderate, or redirect them.
+---
 
-#### 3c. Helper: `findOrCreateMessengerIdentity`
+## 4. Telegram Bot Updates
+
+### ✅ [DONE] `src/lib/telegram/bot.ts`
+
+All three handlers are implemented. The following targeted revisions are required.
+
+#### 4a. Reaction Callback Handler — ✅ DONE, 🔲 REVISE validation
+
+The handler is implemented. Add a config validation guard after resolving `pub.hub_id`:
 
 ```typescript
-async function findOrCreateMessengerIdentity(
-  adminClient: SupabaseClient,
-  telegramId: number,
-  username?: string
-) {
-  const { data: existing } = await adminClient
-    .from('messenger_identities')
-    .select('id, consumer_id')
-    .eq('platform', 'telegram')
-    .eq('platform_user_id', telegramId.toString())
+// After resolving pub.hub_id — validate reactionType against hub config
+const { data: config } = await adminClient
+  .from('hub_engagement_config')
+  .select('reactions_enabled')
+  .eq('hub_id', pub.hub_id)
+  .maybeSingle();
+
+const allowed: string[] = config?.reactions_enabled ?? DEFAULT_REACTIONS;
+
+if (!allowed.includes(reactionType)) {
+  return ctx.answerCallbackQuery("This reaction is no longer available for this hub.");
+}
+// ... rest of upsert/toggle logic unchanged
+```
+
+Replace the hardcoded `labels` map:
+```typescript
+// Replace:
+const labels: Record<string, string> = {
+  insight: "🧠 Marked as Insight",
+  helpful: "👍 Marked as Helpful",
+  irrelevant: "👎 Noted"
+};
+
+// With:
+import { BASE_REACTION_SET } from '@/lib/engagement/reactions';
+const callbackLabel = BASE_REACTION_SET[reactionType as ReactionKey]?.callbackLabel ?? "Recorded!";
+await ctx.answerCallbackQuery(callbackLabel);
+```
+
+#### 4b. Reply-to-Comment Handler — ✅ DONE, 🔲 REVISE gate
+
+Add a `comments_enabled` check before persisting:
+
+```typescript
+// After resolving logEntry — check hub comment config
+const { data: config } = await adminClient
+  .from('hub_engagement_config')
+  .select('comments_enabled')
+  .eq('hub_id', logEntry.publication.hub_id)
+  .maybeSingle();
+
+// If hub has explicitly disabled comments, ignore silently
+if (config && config.comments_enabled === false) return;
+
+// ... rest of insert + Inngest event unchanged
+```
+
+#### 4c. Helper: `findOrCreateMessengerIdentity` — ✅ DONE, no changes needed
+
+---
+
+## 5. Feedback Analyst Agent (Inngest)
+
+### ✅ [DONE] `src/inngest/engagement.ts`
+
+No changes required. The sentiment scoring function is agnostic to which reaction types are configured per hub.
+
+---
+
+## 6. Dashboard Integration
+
+### ✅ [DONE] `/dashboard/hubs/[slug]/intelligence/page.tsx`
+
+The page exists and shows stat cards, publication breakdown, and the comment inbox. The following revisions adapt it to dynamic hub configuration.
+
+### 🔲 [REVISE] `src/app/dashboard/hubs/intelligence-actions.ts`
+
+`getPublicationEngagement` currently hardcodes `insight`, `helpful`, `irrelevant` as aggregation keys. It must become hub-config-aware:
+
+```typescript
+export async function getPublicationEngagement(hubId: string) {
+  const supabase = await createClient();
+
+  // Fetch the hub's enabled reactions
+  const { data: config } = await supabase
+    .from('hub_engagement_config')
+    .select('reactions_enabled')
+    .eq('hub_id', hubId)
     .maybeSingle();
 
-  if (existing) return existing;
+  const enabledReactions: string[] = config?.reactions_enabled ?? DEFAULT_REACTIONS;
 
-  // Create shadow identity
-  const { data: created } = await adminClient
-    .from('messenger_identities')
-    .insert({
-      platform: 'telegram',
-      platform_user_id: telegramId.toString(),
-      platform_username: username || null,
-      is_verified: false
-    })
-    .select('id, consumer_id')
-    .single();
+  const { data, error } = await supabase
+    .from('publication_engagement')
+    .select(`publication_id, type, value, publication:publications(title)`)
+    .eq('hub_id', hubId);
 
-  return created!;
-}
-```
+  if (error) { /* ... */ return []; }
 
----
+  const pubMap = new Map<string, any>();
 
-## 4. Feedback Analyst Agent (Inngest)
-
-### [NEW] `src/inngest/engagement.ts`
-
-Only processes **comments** — reactions are stored directly without AI processing.
-
-```typescript
-export const processEngagementFeedback = inngest.createFunction(
-  {
-    id: 'xentara-feedback-analyst',
-    triggers: [{ event: 'xentara/engagement.received' }],
-    concurrency: { limit: 10 },
-    retries: 1,
-  },
-  async ({ event, step }) => {
-    const { publicationId, hubId, type, content } = event.data;
-
-    if (type !== 'comment' || !content) {
-      return { status: 'skipped', reason: 'not a comment' };
+  for (const e of (data || [])) {
+    if (!pubMap.has(e.publication_id)) {
+      const reactionCounts = Object.fromEntries(enabledReactions.map(r => [r, 0]));
+      pubMap.set(e.publication_id, {
+        id: e.publication_id,
+        title: (e.publication as any)?.title || 'Unknown',
+        ...reactionCounts,
+        comments: 0
+      });
     }
-
-    // Step 1: Analyze sentiment
-    const sentimentScore = await step.run('analyze-comment-sentiment', async () => {
-      // Use existing AI engine (summarizeWithAI pattern)
-      // Returns a float from -1.0 (very negative) to 1.0 (very positive)
-      // For MVP: use a simple prompt to Gemini Flash
-      return await analyzeSentiment(content);
-    });
-
-    // Step 2: Write score back
-    await step.run('update-engagement-record', async () => {
-      const supabase = createServiceClient();
-      await supabase
-        .from('publication_engagement')
-        .update({ sentiment_score: sentimentScore })
-        .eq('publication_id', publicationId)
-        .eq('type', 'comment')
-        .eq('value', content)
-        .is('sentiment_score', null); // Only update if not already scored
-    });
-
-    return { status: 'analyzed', score: sentimentScore };
+    const stats = pubMap.get(e.publication_id);
+    if (e.type === 'reaction' && e.value in stats) stats[e.value]++;
+    else if (e.type === 'comment') stats.comments++;
   }
-);
+
+  return {
+    rows: Array.from(pubMap.values()),
+    enabledReactions   // Pass to UI so it can render correct columns
+  };
+}
 ```
 
-### [MODIFY] `src/inngest/functions.ts`
+### 🔲 [REVISE] `/dashboard/hubs/[slug]/intelligence/page.tsx`
 
-Add export:
-```typescript
-export { processEngagementFeedback } from "./engagement";
-```
+The publication breakdown table must render columns dynamically based on `enabledReactions` returned by the action, using `BASE_REACTION_SET` for labels/emojis.
 
-### [MODIFY] `src/app/api/inngest/route.ts`
+### 🔲 [NEW] Hub Settings — Engagement Configuration Section
 
-Register the function:
-```typescript
-import { processEngagementFeedback } from "@/inngest/functions";
-// Add to functions array
-```
+**Location:** Add a new section to the hub settings page or create a dedicated sub-page at `/dashboard/hubs/[slug]/settings/engagement`.
 
----
-
-## 5. Dashboard Integration
-
-### [NEW] `/dashboard/hubs/[slug]/intelligence/page.tsx`
-
-A server component that queries engagement data per hub.
-
-**Layout:**
+**UI layout:**
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Hub Name — Intelligence                        │
-├─────────────────────────────────────────────────┤
-│                                                 │
-│  ┌─────────────────────────────────────────┐    │
-│  │  ENGAGEMENT SUMMARY (stat cards)        │    │
-│  │  Total Reactions │ Comments │ Avg Sent.  │    │
-│  │  127             │ 23       │ +0.4       │    │
-│  └─────────────────────────────────────────┘    │
-│                                                 │
-│  ┌─────────────────────────────────────────┐    │
-│  │  REACTION BREAKDOWN (per publication)   │    │
-│  │  Publication Title    🧠  👍  👎        │    │
-│  │  "AI Market Update"   12  34  2         │    │
-│  │  "Crypto Regulation"   8  15  5         │    │
-│  └─────────────────────────────────────────┘    │
-│                                                 │
-│  ┌─────────────────────────────────────────┐    │
-│  │  COMMENT INBOX                          │    │
-│  │  [user] on "AI Market Update":          │    │
-│  │  "Great analysis, especially the..."    │    │
-│  │  Sentiment: +0.7  •  2h ago             │    │
-│  └─────────────────────────────────────────┘    │
-│                                                 │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Engagement Configuration                           │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  Reactions                                          │
+│  Select which reactions appear on published         │
+│  messages. Order controls button placement.         │
+│                                                     │
+│  ☑ 🧠 Insight      ☑ 👍 Helpful    ☑ 👎 Not for me │
+│  ☐ 🔥 Trending    ☐ 🚀 Share-worthy ☐ ❓ Need context│
+│                                                     │
+│  Comment Capture                                    │
+│  Allow subscribers to respond to published          │
+│  messages with text replies.                        │
+│                                                     │
+│  ● Enabled    ○ Disabled                            │
+│                                                     │
+│                           [ Save Configuration ]   │
+└─────────────────────────────────────────────────────┘
 ```
 
-**Data Queries (server actions):**
+**New server actions in `src/app/dashboard/hubs/settings-actions.ts`:**
 
 ```typescript
-// In settings-actions.ts or a new intelligence-actions.ts
-export async function getHubEngagementSummary(hubId: string) {
-  // Aggregate reaction counts grouped by value
-  // Aggregate comment count
-  // Average sentiment_score for comments
+export async function getHubEngagementConfig(hubId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('hub_engagement_config')
+    .select('reactions_enabled, comments_enabled')
+    .eq('hub_id', hubId)
+    .maybeSingle();
+
+  return {
+    reactionsEnabled: data?.reactions_enabled ?? DEFAULT_REACTIONS,
+    commentsEnabled:  data?.comments_enabled  ?? true,
+  };
 }
 
-export async function getPublicationEngagement(hubId: string) {
-  // Per-publication breakdown: reactions by type, comment count
-  // Ordered by total engagement descending
-}
+export async function saveHubEngagementConfig(
+  hubId: string,
+  reactionsEnabled: string[],
+  commentsEnabled: boolean
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('hub_engagement_config')
+    .upsert({ hub_id: hubId, reactions_enabled: reactionsEnabled, comments_enabled: commentsEnabled },
+             { onConflict: 'hub_id' });
 
-export async function getRecentComments(hubId: string, limit = 20) {
-  // Latest comments with platform, user info, sentiment
+  if (error) throw new Error(error.message);
+  revalidatePath(`/dashboard/hubs/[slug]/settings`, 'page');
+  revalidatePath(`/dashboard/hubs/[slug]/intelligence`, 'page');
 }
 ```
 
 ---
 
-## 6. Implementation Roadmap
+## 7. Revised Implementation Roadmap
 
-| Step | Task                                                               | Effort |
-| :--- | :----------------------------------------------------------------- | :----- |
-| 1    | Database Migration (`publication_engagement` + indexes + RLS)      | Small  |
-| 2    | Add reaction buttons to distribution agent inline keyboard         | Small  |
-| 3    | Implement `findOrCreateMessengerIdentity` helper                   | Small  |
-| 4    | Implement reaction callback handler in bot                         | Medium |
-| 5    | Implement reply-to-comment handler in bot                          | Medium |
-| 6    | Create Inngest engagement agent + `analyzeSentiment` AI call       | Medium |
-| 7    | Register new Inngest function                                      | Small  |
-| 8    | Create dashboard Intelligence page + server actions                | Medium |
+| Step | Task | Status | Effort |
+| :--- | :--- | :--- | :--- |
+| 1 | DB migration: `publication_engagement` + indexes + RLS | ✅ DONE | — |
+| 2 | Hardcoded reaction buttons on distribution messages | ✅ DONE (to be revised) | — |
+| 3 | `findOrCreateMessengerIdentity` helper | ✅ DONE | — |
+| 4 | Reaction callback handler | ✅ DONE (to be revised) | — |
+| 5 | Reply-to-comment handler | ✅ DONE (to be revised) | — |
+| 6 | Inngest sentiment analyst + `analyzeSentiment` | ✅ DONE | — |
+| 7 | Register Inngest function | ✅ DONE | — |
+| 8 | Intelligence dashboard page + server actions | ✅ DONE (to be revised) | — |
+| **9** | **[DONE]** `src/lib/engagement/reactions.ts` — `BASE_REACTION_SET` constant + `buildReactionButtons` helper | ✅ DONE | Small |
+| **10** | **[DONE]** DB migration: `hub_engagement_config` table + RLS | ✅ DONE | Small |
+| **11** | **[DONE]** `distribution.ts` — fetch hub engagement config, dynamic reaction row, skip row if none enabled | ✅ DONE | Medium |
+| **12** | **[DONE]** `bot.ts` reaction handler — validate reaction type against hub config; dynamic callback labels from `BASE_REACTION_SET` | ✅ DONE | Small |
+| **13** | **[DONE]** `bot.ts` comment handler — check `comments_enabled` before persisting | ✅ DONE | Small |
+| **14** | **[REVISE]** `intelligence-actions.ts` — dynamic reaction key aggregation; pass `enabledReactions` to UI | 🔲 TODO | Small |
+| **15** | **[REVISE]** `intelligence/page.tsx` — render dynamic reaction columns in publication breakdown table | 🔲 TODO | Small |
+| **16** | **[NEW]** Hub Settings — Engagement Config section: multi-select from base set + comments toggle + server actions | 🔲 TODO | Medium |
 
-**Estimated scope:** ~2 development sessions for core (steps 1–7), +1 for the dashboard view.
+**Recommended session split:**
+- **Session A** (Steps 9–13): Data layer + bot/distribution runtime — these are tightly coupled and should land together.
+- **Session B** (Steps 14–16): Dashboard + settings UI — can follow independently.
 
----
-
-## 7. Verification Plan
-
-| # | Test                                                                                                  | Type        |
-| : | :---------------------------------------------------------------------------------------------------- | :---------- |
-| 1 | Apply migration → confirm `publication_engagement` table, constraints, partial indexes exist           | Automated   |
-| 2 | `pnpm build` passes across monorepo                                                                   | Automated   |
-| 3 | Publish a publication → verify Telegram message now has two rows of buttons (links + reactions)        | Manual      |
-| 4 | Click 🧠 on a Telegram publication → confirm `publication_engagement` row with `type=reaction`        | Integration |
-| 5 | Click 🧠 again → confirm the reaction is removed (toggle off)                                        | Integration |
-| 6 | Click 🧠 then 👍 → confirm both reactions coexist (different `value`)                                | Integration |
-| 7 | Reply to a publication message in Telegram → confirm `type=comment` row in DB                         | Integration |
-| 8 | Verify Inngest receives `xentara/engagement.received` event and writes `sentiment_score`              | Integration |
-| 9 | Unlinked Telegram user reacts → confirm `messenger_identity_id` populated, `consumer_id` is NULL      | Integration |
-| 10| Dashboard Intelligence page loads and shows correct aggregated data                                    | Manual      |
+**Estimated remaining scope:** ~1.5 development sessions.
 
 ---
 
-## 8. Future Considerations (Post-Phase 9)
+## 8. Verification Plan
 
-Based on current decisions, the following will be implemented as optional settings in future phases:
+| # | Test | Type |
+| :- | :--- | :--- |
+| 1 | Apply `hub_engagement_config` migration → confirm table, unique constraint, defaults, RLS policies | Automated |
+| 2 | `pnpm build` passes across monorepo | Automated |
+| 3 | Hub with no config row → distribution message shows default 3-button reaction row | Manual |
+| 4 | Configure hub to use only `trending` + `share` → distribution message shows 2-button row | Manual |
+| 5 | Configure hub with 0 reactions → distribution message has no reaction row | Manual |
+| 6 | Click a reaction button → `publication_engagement` row inserted with correct `value` | Integration |
+| 7 | Click same reaction again → row removed (toggle off) | Integration |
+| 8 | Craft a `callback_data` for a reaction not in hub config → bot returns "no longer available" message | Integration |
+| 9 | Hub with `comments_enabled = false` → reply to publication message → no DB row inserted | Integration |
+| 10 | Hub with `comments_enabled = true` → reply captured, Inngest event fired, `sentiment_score` backfilled | Integration |
+| 11 | Intelligence page publication breakdown shows columns matching hub's configured reactions only | Manual |
+| 12 | Unlinked Telegram user reacts → `messenger_identity_id` populated, `consumer_id` NULL | Integration |
+| 13 | Save engagement config from settings UI → distribution agent picks up new config on next publish | Manual |
 
-- **Privacy Controls**: Toggle per channel/group to make comments private (curator-only) or public. Not applicable to private chats (always visible).
-- **Targeted Alerts**: Hub-directed notifications for engagement milestones or negative sentiment, configurable per distribution channel.
+---
+
+## 9. Open Design Decisions
+
+Before implementation of steps 9–16 begins, the following should be confirmed:
+
+1. **Reaction ordering on Telegram**: The order of `reactions_enabled` in the array drives button order. Should the UI allow drag-to-reorder, or is checkbox order (top-to-bottom) sufficient?
+
+2. **Maximum reactions**: Telegram renders up to ~8 buttons per row cleanly, but UX degrades above 4. Should the platform enforce a maximum of 4 enabled reactions per hub?
+
+3. **Config seeding**: Hubs without a `hub_engagement_config` row use application-level defaults. The `saveHubEngagementConfig` upsert creates the row on first save. No backfill migration needed — confirmed.
+
+4. **Historical reactions for discontinued types**: If a curator removes a reaction, historical `publication_engagement` rows with that `value` persist. The Intelligence dashboard should display all historical reaction types, with a visual cue (e.g., muted/italic label) for reactions no longer in the hub's active config.
+
+---
+
+## 10. Future Considerations (Post-Phase 9)
+
+- **Privacy Controls**: Toggle per channel/group to make comments private (curator-only) or public.
+- **Targeted Alerts**: Hub-directed notifications for engagement milestones or negative sentiment.
 - **In-Channel Analytics**: Periodic summaries pushed back to the channel showing popular topics.
-- **Reaction Count Display**: Optionally update the inline keyboard text to show live counts (e.g., `🧠 12`). Requires `editMessageReplyMarkup` calls.
+- **Reaction Count Display**: Optionally update inline keyboard text to show live counts (e.g., `🧠 12`). Requires `editMessageReplyMarkup` calls.
+- **WhatsApp Engagement**: Reaction and comment capture parity for WhatsApp distribution channels.

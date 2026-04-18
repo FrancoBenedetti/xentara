@@ -27,7 +27,7 @@ The pipeline is now implemented using an event-driven model on **Inngest**, allo
 5. Taxonomy Seeding Agent: In **Exploratory Mode**, identifies new emerging themes and proposes them as "unconfirmed" tags.
 6. Normalization Agent: Finalizes the `publication` record with bylines, sentiment scores, and weighted tags.
 7. Distribution & Notification Agent: Manages the selective push of publications to Telegram/WhatsApp and updates the Consumer PWA state.
-8. Engagement & Feedback Agent: Listens for reactions and responses from messengers to build an "Intelligence Feedback Loop" for curators.
+8. Engagement & Feedback Agent: Listens for reactions and responses from messengers to build an "Intelligence Feedback Loop" for curators. Available reaction signals and whether qualitative responses (comments) are captured are **configurable per Hub** by the hub owner/curator from a platform-defined base set.
 9. Format Orchestrator (Polymorphic Agent): AI-assisted assistant that reformats publication cards based on medium constraints (e.g., plain-text for messengers, image-grids for visual discovery walls).
 
 ---
@@ -39,7 +39,7 @@ The pipeline is now implemented using an event-driven model on **Inngest**, allo
 - Source & Taxonomy Configuration: Management of Youtube/RSS and confirmed "Flavor" Lenses.
 - Publication History: Persistent log of all published items with cross-medium timestamps. 
 - Republication Engine: Curators can manually re-publish any item with fresh commentary and added context.
-- Intelligence Feedback: Real-time analytics on consumer reactions (stats) and responses (anonymous or identified) to refine Hub strategy.
+- Intelligence Feedback: Real-time analytics on consumer reactions (stats) and responses (anonymous or identified) to refine Hub strategy. Curators configure which reaction signals are active for their Hub (selected from a platform base set) and whether qualitative comment capture is enabled — giving each Hub a tailored feedback vocabulary.
 
 ### **B. Service Layer (The Headless Xentara API)**
 - Identity: Federated Auth (Supabase) and **API Key Management** for external integrations.
@@ -93,6 +93,7 @@ V2 introduces a core architectural toggle per Hub:
 6. Implication: Path-Agnostic Client Architecture: Ensuring the PWA template supports relative assets and dynamic `basePath` configuration for deployment flexibility.
 7. Implication: Hub Setup Protocol (Handshake): Implementation of a secure handshake between the Curation Dashboard (Key Generation) and the PWA Client (Key Verification + Curator Auth).
 8. Implication: Discoverable API Documentation: Providing a Swagger/OpenAPI specification for the Headless Hub API to simplify third-party developer onboarding.
+9. Implication: Hub-Level Engagement Customisation: The platform maintains a base set of reaction signals (emoji + label + key). Hub owners select a subset via the Curation Dashboard, controlling which reactions appear on distributed messages and which response types are tracked. This keeps feedback vocabulary meaningful and purposeful per Hub without requiring schema changes for new reaction types.
 
 ## 7. Revised Roadmap
 - [x] Phase 1: Core Hub & Source Management

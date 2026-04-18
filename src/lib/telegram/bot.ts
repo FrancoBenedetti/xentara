@@ -3,6 +3,7 @@ import { inngest } from '@/inngest/client';
 import { Bot, InlineKeyboard } from 'grammy';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { escapeHTML } from './formatter';
+import { BASE_REACTION_SET, DEFAULT_REACTIONS, ReactionKey } from '@/lib/engagement/reactions';
 // Initialize the bot with the token from environment variables
 // It's safe to cast since we'll check it in the webhook route before calling
 export const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token_for_build');
@@ -585,6 +586,18 @@ bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
     return ctx.answerCallbackQuery("Publication not found.");
   }
 
+  const { data: config } = await adminClient
+    .from('hub_engagement_config')
+    .select('reactions_enabled')
+    .eq('hub_id', pub.hub_id)
+    .maybeSingle();
+
+  const allowed: string[] = config?.reactions_enabled ?? DEFAULT_REACTIONS;
+
+  if (!allowed.includes(reactionType)) {
+    return ctx.answerCallbackQuery("This reaction is no longer available for this hub.");
+  }
+
   const { error } = await adminClient
     .from('publication_engagement')
     .upsert({
@@ -609,12 +622,8 @@ bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
 
     await ctx.answerCallbackQuery("Reaction removed.");
   } else {
-    const labels: Record<string, string> = {
-      insight: "🧠 Marked as Insight",
-      helpful: "👍 Marked as Helpful",
-      irrelevant: "👎 Noted"
-    };
-    await ctx.answerCallbackQuery(labels[reactionType] || "Recorded!");
+    const callbackLabel = BASE_REACTION_SET[reactionType as ReactionKey]?.callbackLabel ?? "Recorded!";
+    await ctx.answerCallbackQuery(callbackLabel);
   }
 });
 
@@ -639,6 +648,14 @@ bot.on('message', async (ctx) => {
     .single() as any;
 
   if (!logEntry) return;
+
+  const { data: config } = await adminClient
+    .from('hub_engagement_config')
+    .select('comments_enabled')
+    .eq('hub_id', logEntry.publication.hub_id)
+    .maybeSingle();
+
+  if (config && config.comments_enabled === false) return;
 
   const identity = await findOrCreateMessengerIdentity(adminClient, telegramId, ctx.from?.username);
 

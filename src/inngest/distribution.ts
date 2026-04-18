@@ -4,6 +4,7 @@ import {
     formatPublicationForTelegram, 
     formatPreviewForTelegram 
 } from '@/lib/telegram/formatter';
+import { buildReactionButtons, DEFAULT_REACTIONS } from '@/lib/engagement/reactions';
 import { Bot } from 'grammy';
 // Note: We use the admin client because this runs server-side via Inngest triggers
 
@@ -65,11 +66,21 @@ export const distributePublication = (inngest as any).createFunction(
         eligibleSubscribers = identities || [];
       }
 
+      const { data: engagementConfig } = await supabase
+        .from('hub_engagement_config')
+        .select('reactions_enabled, comments_enabled')
+        .eq('hub_id', hubId)
+        .maybeSingle();
+
       return {
         publication,
         hub,
         channels: channels || [],
-        eligibleSubscribers
+        eligibleSubscribers,
+        engagementConfig: {
+          reactionsEnabled: engagementConfig?.reactions_enabled ?? DEFAULT_REACTIONS,
+          commentsEnabled: engagementConfig?.comments_enabled ?? true
+        }
       };
     });
 
@@ -108,16 +119,13 @@ export const distributePublication = (inngest as any).createFunction(
                 row1.push({ text: '🔗 Source Article', url: context.publication.source_url });
             }
 
-            const row2 = [
-                { text: '🧠 Insight', callback_data: `react_${publicationId}_insight` },
-                { text: '👍 Helpful', callback_data: `react_${publicationId}_helpful` },
-                { text: '👎 Noted', callback_data: `react_${publicationId}_irrelevant` }
-            ];
+            const row2 = buildReactionButtons(publicationId, context.engagementConfig.reactionsEnabled);
+            const inlineKeyboard = row2.length > 0 ? [row1, row2] : [row1];
 
             const message = await bot.api.sendMessage(channel.channel_id, formatted.telegramPreview, {
                 parse_mode: 'HTML',
                 reply_markup: {
-                    inline_keyboard: [row1, row2]
+                    inline_keyboard: inlineKeyboard
                 }
             });
             
@@ -168,16 +176,13 @@ export const distributePublication = (inngest as any).createFunction(
                 row1.push({ text: '🔗 Source Article', url: context.publication.source_url });
             }
 
-            const row2 = [
-                { text: '🧠 Insight', callback_data: `react_${publicationId}_insight` },
-                { text: '👍 Helpful', callback_data: `react_${publicationId}_helpful` },
-                { text: '👎 Noted', callback_data: `react_${publicationId}_irrelevant` }
-            ];
+            const row2 = buildReactionButtons(publicationId, context.engagementConfig.reactionsEnabled);
+            const inlineKeyboard = row2.length > 0 ? [row1, row2] : [row1];
 
             const message = await bot.api.sendMessage(identity.platform_user_id, formatted.telegramPreview, {
                 parse_mode: 'HTML',
                 reply_markup: {
-                    inline_keyboard: [row1, row2]
+                    inline_keyboard: inlineKeyboard
                 }
             });
             
