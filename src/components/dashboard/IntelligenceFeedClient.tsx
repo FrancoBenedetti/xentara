@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Publication, purgePublications } from '@/app/dashboard/actions'
+import { useState, useRef, useCallback } from 'react'
+import { Publication, purgePublications, getRecentPublications } from '@/app/dashboard/actions'
 import PublicationCard from './PublicationCard'
 import styles from '@/app/dashboard/dashboard.module.css'
 
@@ -16,8 +16,48 @@ export default function IntelligenceFeedClient({
   hubId,
   sourceId 
 }: IntelligenceFeedClientProps) {
+  const [publications, setPublications] = useState<Publication[]>(initialPublications)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isPurging, setIsPurging] = useState(false)
+  
+  // Pagination State
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(initialPublications.length >= 50)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  const observer = useRef<IntersectionObserver | null>(null)
+  const lastElementRef = useCallback((node: HTMLDivElement) => {
+    if (isLoadingMore) return
+    if (observer.current) observer.current.disconnect()
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMore()
+      }
+    })
+    if (node) observer.current.observe(node)
+  }, [isLoadingMore, hasMore])
+
+  const loadMore = async () => {
+    setIsLoadingMore(true)
+    try {
+      const nextPage = page + 1
+      const newPubs = await getRecentPublications(hubId, sourceId, nextPage)
+      if (newPubs.length < 50) {
+        setHasMore(false)
+      }
+      // Filter out duplicates just in case
+      setPublications(prev => {
+        const existingIds = new Set(prev.map(p => p.id))
+        const uniqueNew = newPubs.filter(p => !existingIds.has(p.id))
+        return [...prev, ...uniqueNew]
+      })
+      setPage(nextPage)
+    } catch (error) {
+      console.error('Error loading more publications:', error)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => 
@@ -34,6 +74,7 @@ export default function IntelligenceFeedClient({
     setIsPurging(true)
     try {
       await purgePublications(selectedIds)
+      setPublications(prev => prev.filter(p => !selectedIds.includes(p.id)))
       setSelectedIds([])
     } catch (error) {
       console.error('Failed to purge publications:', error)
@@ -43,8 +84,8 @@ export default function IntelligenceFeedClient({
     }
   }
 
-  const readyCount = initialPublications.filter(p => p.status === 'ready').length
-  const unPublishedPublications = initialPublications.filter(p => !p.is_published)
+  const readyCount = publications.filter(p => p.status === 'ready').length
+  const unPublishedPublications = publications.filter(p => !p.is_published)
   const allSelected = unPublishedPublications.length > 0 && selectedIds.length === unPublishedPublications.length
 
   const toggleSelectAll = () => {
@@ -76,7 +117,7 @@ export default function IntelligenceFeedClient({
                 <div className={styles.feedMeta}>
                     <span className={styles.feedStatusActive}>{readyCount} READY</span>
                     <span style={{ opacity: 0.5 }}>•</span>
-                    <span>{initialPublications.length} TOTAL</span>
+                    <span>{publications.length} TOTAL</span>
                 </div>
             </div>
         </div>
@@ -105,38 +146,34 @@ export default function IntelligenceFeedClient({
         )}
       </div>
 
-      {initialPublications.length === 0 ? (
+      {publications.length === 0 ? (
         <div className={styles.feedEmpty}>
            <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Channel is currently silent.</p>
            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--indigo)', marginTop: '0.25rem' }}>Synapse activity pending...</p>
         </div>
       ) : (
         <div className={styles.feedScrollArea}>
-          {initialPublications.map((pub: Publication) => (
-            <div key={pub.id} style={{ position: 'relative' }}>
-              <PublicationCard pub={pub} />
-              {!pub.is_published && (
-                <div style={{ 
-                    position: 'absolute', 
-                    top: '1.25rem', 
-                    right: '1.25rem',
-                    zIndex: 10
-                }}>
-                    <input 
-                        type="checkbox" 
-                        checked={selectedIds.includes(pub.id)}
-                        onChange={() => toggleSelection(pub.id)}
-                        style={{ 
-                            width: '18px', 
-                            height: '18px', 
-                            cursor: 'pointer',
-                            accentColor: 'var(--indigo)'
-                        }}
-                    />
-                </div>
-              )}
+          {publications.map((pub: Publication, index: number) => {
+            const isLast = index === publications.length - 1
+            return (
+              <div 
+                key={pub.id} 
+                ref={isLast ? lastElementRef : null}
+              >
+                <PublicationCard 
+                    pub={pub} 
+                    selectable={!pub.is_published}
+                    isSelected={selectedIds.includes(pub.id)}
+                    onSelect={() => toggleSelection(pub.id)}
+                />
+              </div>
+            )
+          })}
+          {isLoadingMore && (
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 800 }}>
+              LOADING MORE ARCHIVES...
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

@@ -6,7 +6,14 @@ import ReprocessButton from './ReprocessButton'
 import RepublishModal from './RepublishModal'
 import styles from '@/app/dashboard/dashboard.module.css'
 
-export default function PublicationCard({ pub }: { pub: Publication }) {
+interface PublicationCardProps {
+  pub: Publication
+  selectable?: boolean
+  isSelected?: boolean
+  onSelect?: () => void
+}
+
+export default function PublicationCard({ pub, selectable, isSelected, onSelect }: PublicationCardProps) {
   const [showModal, setShowModal] = useState(false)
 
   const isProcessing = ['raw', 'transcribing', 'summarizing'].includes(pub.status)
@@ -49,8 +56,19 @@ export default function PublicationCard({ pub }: { pub: Publication }) {
     <div key={pub.id} className={`${styles.pubCard} ${isProcessing ? styles.pubCardProcessing : ''}`}>
       
       <div className={styles.pubCardHeader}>
-         <div className={styles.pubCardSource}>
-            {pub.monitored_sources?.name || 'MEDIA ITEM'}
+         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+           {selectable && (
+             <input 
+                type="checkbox" 
+                checked={isSelected}
+                onChange={onSelect}
+                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--indigo)' }}
+                onClick={(e) => e.stopPropagation()}
+             />
+           )}
+           <div className={styles.pubCardSource}>
+              {pub.monitored_sources?.name || 'MEDIA ITEM'}
+           </div>
          </div>
          {getStatusBadge(pub.status)}
       </div>

@@ -318,7 +318,7 @@ export async function refreshSource(id: string, url: string, type: string) {
 /**
  * INTELLIGENCE & PUBLICATIONS
  */
-export async function getRecentPublications(hubId: string, sourceId?: string): Promise<Publication[]> {
+export async function getRecentPublications(hubId: string, sourceId?: string, page: number = 0): Promise<Publication[]> {
   const supabase = await createClient()
   let query = supabase
     .from('publications')
@@ -329,9 +329,13 @@ export async function getRecentPublications(hubId: string, sourceId?: string): P
     query = query.eq('source_id', sourceId)
   }
 
+  const pageSize = 50
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
   const { data } = await query
     .order('created_at', { ascending: false })
-    .limit(50)
+    .range(from, to)
 
   return (data as unknown as Publication[]) || []
 }
