@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Publication, publishPublication } from '@/app/dashboard/actions'
 
 const SimpleMarkdown = ({ children }: { children: string }) => {
@@ -99,7 +100,12 @@ export default function RepublishModal({ publication, onClose }: Props) {
     }
   }
 
-  return (
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) return null
+
+  const modalContent = (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
       <div style={{ background: 'var(--bg-surface)', width: '100%', maxWidth: '800px', borderRadius: '1.5rem', border: '1px solid var(--border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
         
@@ -119,7 +125,7 @@ export default function RepublishModal({ publication, onClose }: Props) {
               type="text" 
               value={formData.title} 
               onChange={e => setFormData({...formData, title: e.target.value})}
-              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '1rem', fontWeight: 800 }}
+              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '1rem', fontWeight: 800 }}
             />
           </div>
 
@@ -129,7 +135,7 @@ export default function RepublishModal({ publication, onClose }: Props) {
               value={formData.byline} 
               onChange={e => setFormData({...formData, byline: e.target.value})}
               rows={2}
-              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600, resize: 'none' }}
+              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600, resize: 'none' }}
             />
           </div>
 
@@ -140,7 +146,7 @@ export default function RepublishModal({ publication, onClose }: Props) {
               onChange={e => setFormData({...formData, curator_commentary: e.target.value})}
               placeholder="What makes this content significant right now? Add your professional lens..."
               rows={4}
-              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.5 }}
+              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.5 }}
             />
           </div>
 
@@ -187,10 +193,10 @@ export default function RepublishModal({ publication, onClose }: Props) {
                 value={formData.summary} 
                 onChange={e => setFormData({...formData, summary: e.target.value})}
                 rows={8}
-                style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontFamily: 'monospace', lineHeight: 1.6 }}
+                style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontFamily: 'monospace', lineHeight: 1.6 }}
               />
             ) : (
-              <div className="markdown-preview" style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', lineHeight: 1.6, overflowY: 'auto', maxHeight: '400px' }}>
+              <div className="markdown-preview" style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', lineHeight: 1.6, overflowY: 'auto', maxHeight: '400px' }}>
                 <SimpleMarkdown>{formData.summary}</SimpleMarkdown>
               </div>
             )}
@@ -210,4 +216,6 @@ export default function RepublishModal({ publication, onClose }: Props) {
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
