@@ -53,14 +53,15 @@ export async function discoverRecentItems(source: any) {
         // 1. Check uniqueness
         const { data: existing } = await (supabase
             .from('publications' as any) as any)
-            .select('id, source_id, hub_id')
+            .select('id, source_id, hub_id, status')
             .eq('source_url', item.link)
             .eq('hub_id', source.hub_id)
-            .maybeSingle() as { data: { id: string; source_id: string | null; hub_id: string } | null };
+            .maybeSingle() as { data: { id: string; source_id: string | null; hub_id: string; status: string } | null };
 
         if (existing) {
             // Adoption logic: If publication exists in this hub but has no source_id, link it.
-            if (!existing.source_id && existing.hub_id === source.hub_id) {
+            // DO NOT adopt if it was explicitly purged.
+            if (!existing.source_id && existing.hub_id === source.hub_id && existing.status !== 'purged') {
                 console.log(`[Discovery] Adopting orphan publication: ${item.link}`);
                 await (supabase
                     .from('publications' as any) as any)
