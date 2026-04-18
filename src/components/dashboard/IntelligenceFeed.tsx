@@ -11,6 +11,7 @@ export default async function IntelligenceFeed({ hubId, sourceId }: Intelligence
 
   return (
     <IntelligenceFeedClient 
+      key={sourceId || 'unified'}
       initialPublications={publications}
       hubId={hubId}
       sourceId={sourceId}

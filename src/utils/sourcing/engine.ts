@@ -55,6 +55,7 @@ export async function discoverRecentItems(source: any) {
             .from('publications' as any) as any)
             .select('id, source_id, hub_id')
             .eq('source_url', item.link)
+            .eq('hub_id', source.hub_id)
             .maybeSingle() as { data: { id: string; source_id: string | null; hub_id: string } | null };
 
         if (existing) {
@@ -94,7 +95,7 @@ export async function discoverRecentItems(source: any) {
                 source_id: source.id,
                 title: item.title,
                 source_url: item.link,
-                raw_content: item.content || null,
+                content: item['content:encoded'] || (item as any).content || item.description || item.contentSnippet || null,
                 status: item.content ? 'transcribed' : 'raw'
             } as any)
             .select()

@@ -56,7 +56,7 @@ export interface Publication {
   title: string;
   byline: string;
   summary: string;
-  status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed' | 'published';
+  status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed' | 'published' | 'purged';
   source_url: string;
   tags: string[];
   sentiment_score: number | null;
@@ -324,6 +324,7 @@ export async function getRecentPublications(hubId: string, sourceId?: string, pa
     .from('publications')
     .select('*, monitored_sources(name)')
     .eq('hub_id', hubId)
+    .neq('status', 'purged')
     
   if (sourceId) {
     query = query.eq('source_id', sourceId)
@@ -351,6 +352,7 @@ export async function getPublicationHistory(hubId: string, page: number = 0): Pr
     .select('*, monitored_sources(name)')
     .eq('hub_id', hubId)
     .eq('is_published', true)
+    .neq('status', 'purged')
     .order('curator_published_at', { ascending: false })
     .range(from, to)
 
@@ -615,9 +617,8 @@ export async function purgePublications(ids: string[]) {
   const supabase = await createClient()
   const { error } = await supabase
     .from('publications' as never)
-    .delete()
+    .update({ status: 'purged' } as never)
     .in('id', ids)
-    .eq('is_published', false)
 
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
