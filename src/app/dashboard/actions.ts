@@ -94,7 +94,7 @@ export async function createHub(formData: FormData) {
     owner_id: user.id
   }
 
-  const { error } = await supabase.from('hubs' as never).insert(hubData as never)
+  const { error } = await (supabase.from('hubs' as any) as any).insert(hubData as never)
 
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
@@ -107,8 +107,8 @@ export async function getHubs(): Promise<Hub[]> {
     if (!user) return []
 
     // Fetch hubs where the user is a member
-    const { data: memberships, error } = await supabase
-      .from('hub_memberships' as never)
+    const { data: memberships, error } = await (supabase
+      .from('hub_memberships' as any) as any)
       .select('role, hubs (*)')
       .eq('user_id', user.id)
 
@@ -136,8 +136,8 @@ export async function getHubSubscriberCount(hubId: string): Promise<number> {
   try {
     const { createAdminClient } = await import('@/utils/supabase/admin')
     const admin = createAdminClient()
-    const { count, error } = await admin
-      .from('hub_subscriptions' as never)
+    const { count, error } = await (admin
+      .from('hub_subscriptions' as any) as any)
       .select('*', { count: 'exact', head: true })
       .eq('hub_id', hubId)
 
