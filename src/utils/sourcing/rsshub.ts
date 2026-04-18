@@ -14,6 +14,9 @@ export const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'https://rss-hub-o
  * Example: '/maroelamedia/nuus' -> 'https://rsshub.example.com/maroelamedia/nuus'
  */
 export function resolveRSSHubFeedUrl(routePath: string): string {
+    if (routePath.startsWith('http://') || routePath.startsWith('https://')) {
+        return routePath;
+    }
     const origin = RSSHUB_BASE_URL.replace(/\/$/, "");
     const base = routePath.startsWith("/") ? routePath : `/${routePath}`;
     return `${origin}${base}`;
