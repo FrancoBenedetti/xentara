@@ -430,9 +430,9 @@ export async function saveHubEngagementConfig(
 | **11** | **[DONE]** `distribution.ts` — fetch hub engagement config, dynamic reaction row, skip row if none enabled | ✅ DONE | Medium |
 | **12** | **[DONE]** `bot.ts` reaction handler — validate reaction type against hub config; dynamic callback labels from `BASE_REACTION_SET` | ✅ DONE | Small |
 | **13** | **[DONE]** `bot.ts` comment handler — check `comments_enabled` before persisting | ✅ DONE | Small |
-| **14** | **[REVISE]** `intelligence-actions.ts` — dynamic reaction key aggregation; pass `enabledReactions` to UI | 🔲 TODO | Small |
-| **15** | **[REVISE]** `intelligence/page.tsx` — render dynamic reaction columns in publication breakdown table | 🔲 TODO | Small |
-| **16** | **[NEW]** Hub Settings — Engagement Config section: multi-select from base set + comments toggle + server actions | 🔲 TODO | Medium |
+| **14** | **[DONE]** `intelligence-actions.ts` — dynamic reaction key aggregation; pass `enabledReactions` to UI | ✅ DONE | Small |
+| **15** | **[DONE]** `intelligence/page.tsx` — render dynamic reaction columns in publication breakdown table | ✅ DONE | Small |
+| **16** | **[DONE]** Hub Settings — Engagement Config section: multi-select from base set + comments toggle + server actions | ✅ DONE | Medium |
 
 **Recommended session split:**
 - **Session A** (Steps 9–13): Data layer + bot/distribution runtime — these are tightly coupled and should land together.

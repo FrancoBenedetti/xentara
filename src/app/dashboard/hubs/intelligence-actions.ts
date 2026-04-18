@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { DEFAULT_REACTIONS } from '@/lib/engagement/reactions'
 
 export async function getHubEngagementSummary(hubId: string) {
   const supabase = await createClient()
@@ -43,6 +44,15 @@ export async function getHubEngagementSummary(hubId: string) {
 export async function getPublicationEngagement(hubId: string) {
   const supabase = await createClient()
 
+  // Fetch the hub's enabled reactions
+  const { data: config } = await supabase
+    .from('hub_engagement_config')
+    .select('reactions_enabled')
+    .eq('hub_id', hubId)
+    .maybeSingle()
+
+  const enabledReactions: string[] = config?.reactions_enabled ?? DEFAULT_REACTIONS
+
   const { data, error } = await supabase
     .from('publication_engagement')
     .select(`
@@ -55,7 +65,7 @@ export async function getPublicationEngagement(hubId: string) {
 
   if (error) {
     console.error("Failed to fetch publication engagement:", error.message)
-    return []
+    return { rows: [], enabledReactions }
   }
 
   // Aggregate by publication_id
@@ -64,27 +74,29 @@ export async function getPublicationEngagement(hubId: string) {
   for (const e of (data || [])) {
     const pubId = e.publication_id;
     if (!pubMap.has(pubId)) {
+      const reactionCounts = Object.fromEntries(enabledReactions.map(r => [r, 0]));
       pubMap.set(pubId, {
         id: pubId,
         title: (e.publication as any)?.title || 'Unknown',
-        insight: 0,
-        helpful: 0,
-        irrelevant: 0,
-        comments: 0
+        ...reactionCounts,
+        comments: 0,
+        totalReactions: 0
       })
     }
 
     const stats = pubMap.get(pubId)
-    if (e.type === 'reaction') {
-      if (e.value === 'insight') stats.insight++;
-      if (e.value === 'helpful') stats.helpful++;
-      if (e.value === 'irrelevant') stats.irrelevant++;
+    if (e.type === 'reaction' && stats[e.value] !== undefined) {
+      stats[e.value]++;
+      stats.totalReactions++;
     } else if (e.type === 'comment') {
       stats.comments++;
     }
   }
 
-  return Array.from(pubMap.values()).sort((a, b) => (b.insight + b.helpful + b.comments) - (a.insight + a.helpful + a.comments))
+  return {
+    rows: Array.from(pubMap.values()).sort((a, b) => (b.totalReactions + b.comments) - (a.totalReactions + a.comments)),
+    enabledReactions
+  }
 }
 
 export async function getRecentComments(hubId: string, limit = 20) {

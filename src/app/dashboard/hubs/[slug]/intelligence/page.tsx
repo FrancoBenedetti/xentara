@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import styles from '@/app/dashboard/dashboard.module.css'
 import { getHubEngagementSummary, getPublicationEngagement, getRecentComments } from '../../intelligence-actions'
+import { BASE_REACTION_SET, ReactionKey } from '@/lib/engagement/reactions'
 
 export default async function HubIntelligencePage({
   params
@@ -16,7 +17,9 @@ export default async function HubIntelligencePage({
   if (!hub) notFound()
 
   const summary = await getHubEngagementSummary(hub.id)
-  const pubStats = await getPublicationEngagement(hub.id)
+  const pubStatsResult = await getPublicationEngagement(hub.id)
+  const pubStats = pubStatsResult.rows
+  const enabledReactions = pubStatsResult.enabledReactions as ReactionKey[]
   const recentComments = await getRecentComments(hub.id)
 
   return (
@@ -79,12 +82,12 @@ export default async function HubIntelligencePage({
                        <div style={{ flex: 1, marginRight: '1rem' }}>
                          <div style={{ fontSize: '0.9rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>{stat.title}</div>
                        </div>
-                       <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem' }}>
-                         <span title="Insight">🧠 {stat.insight}</span>
-                         <span title="Helpful">👍 {stat.helpful}</span>
-                         <span title="Noted">👎 {stat.irrelevant}</span>
-                         <span title="Comments">💬 {stat.comments}</span>
-                       </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem' }}>
+                          {enabledReactions.map(r => (
+                            <span key={r} title={BASE_REACTION_SET[r]?.label}>{BASE_REACTION_SET[r]?.emoji} {stat[r]}</span>
+                          ))}
+                          <span title="Comments">💬 {stat.comments}</span>
+                        </div>
                      </div>
                    ))}
                  </div>

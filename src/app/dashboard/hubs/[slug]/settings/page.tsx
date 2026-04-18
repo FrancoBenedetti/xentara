@@ -1,9 +1,10 @@
 import { getHubBySlug } from '@/app/dashboard/actions'
-import { getHubChannels, getDistributionLogs } from '@/app/dashboard/hubs/settings-actions'
+import { getHubChannels, getDistributionLogs, getEngagementConfig } from '@/app/dashboard/hubs/settings-actions'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import styles from '@/app/dashboard/dashboard.module.css'
 import DistributionSettings from '@/components/dashboard/DistributionSettings'
+import EngagementSettings from '@/components/dashboard/EngagementSettings'
 
 export default async function HubSettingsPage({
   params
@@ -18,6 +19,7 @@ export default async function HubSettingsPage({
 
   const channels = await getHubChannels(hub.id)
   const logs = await getDistributionLogs(hub.id)
+  const engagementConfig = await getEngagementConfig(hub.id)
 
   return (
     <div className={styles.pageContainer}>
@@ -43,6 +45,7 @@ export default async function HubSettingsPage({
       <div className={styles.contentWrapper}>
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <DistributionSettings hubId={hub.id} initialChannels={channels} logs={logs} />
+          <EngagementSettings hubId={hub.id} initialConfig={engagementConfig} />
         </div>
       </div>
     </div>

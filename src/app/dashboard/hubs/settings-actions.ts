@@ -83,3 +83,30 @@ export async function getDistributionLogs(hubId: string) {
   
   return data || []
 }
+
+export async function getEngagementConfig(hubId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('hub_engagement_config')
+    .select('*')
+    .eq('hub_id', hubId)
+    .maybeSingle()
+  return data
+}
+
+export async function updateEngagementConfig(hubId: string, reactions_enabled: string[], comments_enabled: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('hub_engagement_config')
+    .upsert({
+      hub_id: hubId,
+      reactions_enabled,
+      comments_enabled,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'hub_id' })
+    
+  if (error) throw new Error(error.message)
+  
+  revalidatePath(`/dashboard/hubs/[slug]/settings`, 'page')
+  revalidatePath(`/dashboard/hubs/[slug]/intelligence`, 'page')
+}
