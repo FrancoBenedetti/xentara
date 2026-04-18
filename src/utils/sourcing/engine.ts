@@ -74,9 +74,11 @@ export async function discoverRecentItems(source: any) {
             .maybeSingle() as { data: { id: string; source_id: string | null; hub_id: string; status: string } | null };
 
         if (existing) {
+            // Re-trigger pipeline if it's stuck in a non-final state
+            const isStuck = !['ready', 'published', 'purged'].includes(existing.status);
+            
             // Adoption logic: If publication exists in this hub but has no source_id, link it.
-            // DO NOT adopt if it was explicitly purged.
-            if (!existing.source_id && existing.hub_id === source.hub_id && existing.status !== 'purged') {
+            if (!existing.source_id && existing.status !== 'purged') {
                 await (supabase
                     .from('publications' as any) as any)
                     .update({ 
@@ -86,7 +88,9 @@ export async function discoverRecentItems(source: any) {
                     .eq('id', existing.id);
                 
                 newItemsCount++;
-                
+            }
+
+            if (isStuck || !existing.source_id) {
                 // Trigger pipeline to ensure it's fully processed
                 await inngest.send({
                     name: "xentara/publication.detected",

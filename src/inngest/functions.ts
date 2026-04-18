@@ -93,21 +93,31 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         });
 
         const transcript = rawData.content || "No content found.";
-        const hasTranscript = rawData.metadata?.has_transcript || rawData.metadata?.sourceType === 'rss';
+        const hasTranscript = rawData.metadata?.has_transcript || ['rss', 'rsshub'].includes(rawData.metadata?.sourceType);
 
-        if (hasTranscript) {
-            console.log(`[PIPELINE] Content FOUND. Starting Creative Agent (Summarization).`);
+        if (hasTranscript && transcript.length > 50) {
             // 2. CREATIVE AGENT: SUMMARIZATION
             const summary = await step.run("summarize-content", async () => {
                 const supabase = createServiceClient();
                 await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId).throwOnError();
-                return await summarizeWithAI(transcript, rawData.title, rawData.metadata);
+                try {
+                    return await summarizeWithAI(transcript, rawData.title, rawData.metadata);
+                } catch (e) {
+                    console.error("[PIPELINE] AI Summarization Error:", e);
+                    // Return local fallback immediately instead of failing the step
+                    return transcript.substring(0, 1000) + "... [Note: AI Neural Link encountered an error, showing raw excerpt]";
+                }
             });
 
             console.log(`[PIPELINE] Summary RECEIVED. Starting Taste Predictor.`);
             // 3. TASTE PREDICTOR AGENT: taxonomy-aware analysis
             const analysis = await step.run("predict-taste-and-taxonomy", async () => {
-                return await predictTaste(summary, rawData.title, pub.hub_id);
+                try {
+                    return await predictTaste(summary, rawData.title, pub.hub_id);
+                } catch (e) {
+                    console.error("[PIPELINE] AI Taste Prediction Error:", e);
+                    return { byline: "Intelligence processed.", sentiment: 0.5, tags: ["active"] };
+                }
             });
 
             console.log(`[PIPELINE] Taste ANALYSIS complete. Saving taxonomy discoveries.`);
