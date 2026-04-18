@@ -111,7 +111,7 @@ export async function discoverRecentItems(source: any) {
                 source_id: source.id,
                 title: item.title,
                 source_url: item.link,
-                content: item['content:encoded'] || (item as any).content || item.description || item.contentSnippet || null,
+                raw_content: item.content || null,
                 status: item.content ? 'transcribed' : 'raw'
             } as any)
             .select()

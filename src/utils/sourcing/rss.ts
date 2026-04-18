@@ -41,7 +41,7 @@ export async function fetchLatestArticlesFromFeed(url: string) {
                 title: item.title,
                 link: item.link,
                 pubDate: item.pubDate,
-                content: item['content:encoded'] || (item as any).content || item.contentSnippet || null,
+                content: item['content:encoded'] || (item as any).content || (item as any).description || item.contentSnippet || null,
             }))
         };
     } catch (error: any) {
