@@ -17,6 +17,7 @@ export const discoverNewContentOnce = (inngest as any).createFunction(
     return await step.run("discover-and-track", async () => {
         const supabase = createServiceClient();
         const { data: source } = await (supabase.from('monitored_sources') as any).select('*').eq('id', sourceId).single();
+        if (!source) {
           throw new Error("Source not found");
         }
         return await discoverRecentItems(source);
