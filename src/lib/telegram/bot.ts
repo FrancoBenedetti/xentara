@@ -630,27 +630,32 @@ bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
     await ctx.answerCallbackQuery(callbackLabel);
   }
 
-  // Update inline keyboard to show toggle state/counts
+  // Update inline keyboard to show toggle state/counts + per-user colour state
   try {
     const { data: engagements } = await adminClient
       .from('publication_engagement')
-      .select('value')
+      .select('value, messenger_identity_id')
       .eq('publication_id', publicationId)
       .eq('type', 'reaction');
-      
+
     const counts: Record<string, number> = {};
+    const userReactions = new Set<string>();
+
     for (const eng of (engagements || [])) {
       counts[eng.value] = (counts[eng.value] || 0) + 1;
+      if (eng.messenger_identity_id === identity.id) {
+        userReactions.add(eng.value);
+      }
     }
 
-    const newReactionRow = buildReactionButtons(publicationId, allowed, counts);
-    
+    const newReactionRow = buildReactionButtons(publicationId, allowed, counts, userReactions);
+
     const existingKeyboard = ctx.callbackQuery.message?.reply_markup?.inline_keyboard;
     if (existingKeyboard && existingKeyboard.length > 0) {
-       const newKeyboard = [...existingKeyboard];
-       newKeyboard[newKeyboard.length - 1] = newReactionRow;
-       
-       await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: newKeyboard } });
+      const newKeyboard = [...existingKeyboard];
+      newKeyboard[newKeyboard.length - 1] = newReactionRow as any;
+
+      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: newKeyboard } as any });
     }
   } catch (err) {
     console.error('Error updating markup:', err);
