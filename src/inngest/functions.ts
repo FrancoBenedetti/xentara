@@ -13,10 +13,12 @@ export const discoverNewContentOnce = (inngest as any).createFunction(
   async ({ event, step }: any) => {
     if (!event?.data?.sourceId) return { status: "skipped" };
     const { sourceId, url, type } = event.data;
+    
     return await step.run("discover-and-track", async () => {
         const supabase = createServiceClient();
         const { data: source } = await (supabase.from('monitored_sources') as any).select('*').eq('id', sourceId).single();
-        if (!source) throw new Error("Source not found");
+          throw new Error("Source not found");
+        }
         return await discoverRecentItems(source);
     });
   }
@@ -55,17 +57,14 @@ export const discoverNewContentRecurring = (inngest as any).createFunction(
 export const processIntelligencePipeline = (inngest as any).createFunction(
   { id: "xentara-intelligence-pipeline", triggers: [{ event: "xentara/publication.detected" }] },
   async ({ event, step }: any) => {
-    const { publicationId, sourceUrl, type, hasContent } = event.data;
+    const { publicationId, sourceUrl, type, hubId, hasContent } = event.data;
 
     try {
-        console.log(`[PIPELINE START] Processing Publication ID: ${publicationId} (URL: ${sourceUrl})`);
-        
         const supabase = createServiceClient();
         const { data: pub } = await (supabase.from('publications') as any).select('hub_id').eq('id', publicationId).single();
         if (!pub) throw new Error("Publication Context Lost");
 
         // 1. CONTENT INGESTION
-        console.log(`[PIPELINE] Fetching raw content for: ${sourceUrl}`);
         const rawData = await step.run("fetch-raw-content", async () => {
             const supabase = createServiceClient();
 

@@ -77,7 +77,6 @@ export async function discoverRecentItems(source: any) {
             // Adoption logic: If publication exists in this hub but has no source_id, link it.
             // DO NOT adopt if it was explicitly purged.
             if (!existing.source_id && existing.hub_id === source.hub_id && existing.status !== 'purged') {
-                console.log(`[Discovery] Adopting orphan publication: ${item.link}`);
                 await (supabase
                     .from('publications' as any) as any)
                     .update({ 
@@ -102,7 +101,7 @@ export async function discoverRecentItems(source: any) {
             }
             continue;
         }
-
+        
         // 2. Create entry track
         const { data: pub, error: pubError } = await (supabase
             .from('publications' as any) as any)
@@ -112,7 +111,7 @@ export async function discoverRecentItems(source: any) {
                 title: item.title,
                 source_url: item.link,
                 raw_content: item.content || null,
-                status: item.content ? 'transcribed' : 'raw'
+                status: 'raw'
             } as any)
             .select()
             .single();
