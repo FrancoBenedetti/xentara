@@ -27,14 +27,20 @@ export const DEFAULT_REACTIONS: ReactionKey[] = ['insight', 'helpful', 'irreleva
 /** Build reaction buttons for a Telegram inline keyboard row. */
 export function buildReactionButtons(
   publicationId: string,
-  enabledReactions: string[]
+  enabledReactions: string[],
+  counts?: Record<string, number>
 ): Array<{ text: string; callback_data: string }> {
   return enabledReactions
     .filter((key): key is ReactionKey => key in BASE_REACTION_SET)
     .map(key => {
         const typedKey = key as ReactionKey;
+        const count = counts?.[key] || 0;
+        const text = count > 0 
+            ? `${BASE_REACTION_SET[typedKey].emoji} ${BASE_REACTION_SET[typedKey].label} ${count}`
+            : `${BASE_REACTION_SET[typedKey].emoji} ${BASE_REACTION_SET[typedKey].label}`;
+            
         return {
-            text: `${BASE_REACTION_SET[typedKey].emoji} ${BASE_REACTION_SET[typedKey].label}`,
+            text,
             callback_data: `react_${publicationId}_${key}`
         };
     });

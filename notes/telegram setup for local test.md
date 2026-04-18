@@ -1,3 +1,14 @@
+# Telegram Bot Setup
+
+Two separate bots are maintained — one for local development, one for production.
+
+| Environment | Bot Token (prefix) | Webhook URL |
+| :---------- | :----------------- | :---------- |
+| **Local Dev** | `8712476847:AAEkCTN...` | ngrok tunnel |
+| **Production** | `8677092013:AAHVZ9X...` | `https://xentara-studio.growthhq.biz` |
+
+---
+
 ## Local Development (ngrok)
 
 Get a new ngrok link using `ngrok http 3000` and substitute the URL below:
@@ -11,14 +22,22 @@ curl -X POST "https://api.telegram.org/bot8712476847:AAEkCTN_TDT2b306LGSPw4eRzP7
          }'
 ```
 
+### Verify local webhook
+
+```bash
+curl "https://api.telegram.org/bot8712476847:AAEkCTN_TDT2b306LGSPw4eRzP7Sstuwzk8/getWebhookInfo"
+```
+
+> ⚠️ Remember to restore the production webhook when done with local testing (see below).
+
 ---
 
 ## Production (xentara-studio.growthhq.biz)
 
-Run once DNS has propagated and the Vercel deployment is live:
+Run once DNS has propagated and the Vercel deployment is live, or to restore after local testing:
 
 ```bash
-curl -X POST "https://api.telegram.org/bot8712476847:AAEkCTN_TDT2b306LGSPw4eRzP7Sstuwzk8/setWebhook" \
+curl -X POST "https://api.telegram.org/bot8677092013:AAHVZ9XagNDriHFX_r5oOMRHpMhUJafbIq0/setWebhook" \
      -H "Content-Type: application/json" \
      -d '{
            "url": "https://xentara-studio.growthhq.biz/api/v1/webhooks/telegram",
@@ -26,10 +45,10 @@ curl -X POST "https://api.telegram.org/bot8712476847:AAEkCTN_TDT2b306LGSPw4eRzP7
          }'
 ```
 
-### Verify current webhook
+### Verify production webhook
 
 ```bash
-curl "https://api.telegram.org/bot8712476847:AAEkCTN_TDT2b306LGSPw4eRzP7Sstuwzk8/getWebhookInfo"
+curl "https://api.telegram.org/bot8677092013:AAHVZ9XagNDriHFX_r5oOMRHpMhUJafbIq0/getWebhookInfo"
 ```
 
-Expected production response: `"url": "https://xentara-studio.growthhq.biz/api/v1/webhooks/telegram"`
+Expected response: `"url": "https://xentara-studio.growthhq.biz/api/v1/webhooks/telegram"`

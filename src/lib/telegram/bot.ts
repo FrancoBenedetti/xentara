@@ -3,7 +3,7 @@ import { inngest } from '@/inngest/client';
 import { Bot, InlineKeyboard } from 'grammy';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { escapeHTML } from './formatter';
-import { BASE_REACTION_SET, DEFAULT_REACTIONS, ReactionKey } from '@/lib/engagement/reactions';
+import { BASE_REACTION_SET, DEFAULT_REACTIONS, ReactionKey, buildReactionButtons } from '@/lib/engagement/reactions';
 // Initialize the bot with the token from environment variables
 // It's safe to cast since we'll check it in the webhook route before calling
 export const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token_for_build');
@@ -600,7 +600,7 @@ bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
 
   const { error } = await adminClient
     .from('publication_engagement')
-    .upsert({
+    .insert({
       publication_id: publicationId,
       hub_id: pub.hub_id,
       consumer_id: identity.consumer_id || null,
@@ -609,9 +609,10 @@ bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
       type: 'reaction',
       value: reactionType,
       metadata: { chat_id: ctx.chat?.id }
-    }, { onConflict: 'publication_id,messenger_identity_id,type,value' } as any);
+    } as any);
 
-  if (error) {
+  if (error && error.code === '23505') {
+    // Unique violation means they are toggling OFF
     await adminClient
       .from('publication_engagement')
       .delete()
@@ -621,9 +622,38 @@ bot.callbackQuery(/^react_(.+)_(.+)$/, async (ctx) => {
       .eq('value', reactionType);
 
     await ctx.answerCallbackQuery("Reaction removed.");
+  } else if (error) {
+    console.error("Error inserting reaction:", error);
+    await ctx.answerCallbackQuery("Error saving reaction.");
   } else {
     const callbackLabel = BASE_REACTION_SET[reactionType as ReactionKey]?.callbackLabel ?? "Recorded!";
     await ctx.answerCallbackQuery(callbackLabel);
+  }
+
+  // Update inline keyboard to show toggle state/counts
+  try {
+    const { data: engagements } = await adminClient
+      .from('publication_engagement')
+      .select('value')
+      .eq('publication_id', publicationId)
+      .eq('type', 'reaction');
+      
+    const counts: Record<string, number> = {};
+    for (const eng of (engagements || [])) {
+      counts[eng.value] = (counts[eng.value] || 0) + 1;
+    }
+
+    const newReactionRow = buildReactionButtons(publicationId, allowed, counts);
+    
+    const existingKeyboard = ctx.callbackQuery.message?.reply_markup?.inline_keyboard;
+    if (existingKeyboard && existingKeyboard.length > 0) {
+       const newKeyboard = [...existingKeyboard];
+       newKeyboard[newKeyboard.length - 1] = newReactionRow;
+       
+       await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: newKeyboard } });
+    }
+  } catch (err) {
+    console.error('Error updating markup:', err);
   }
 });
 
