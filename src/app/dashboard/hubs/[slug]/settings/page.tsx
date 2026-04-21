@@ -7,6 +7,8 @@ import DistributionSettings from '@/components/dashboard/DistributionSettings'
 import EngagementSettings from '@/components/dashboard/EngagementSettings'
 import ContentSettings from '@/components/dashboard/ContentSettings'
 
+export const dynamic = 'force-dynamic'
+
 export default async function HubSettingsPage({
   params
 }: {

@@ -5,6 +5,8 @@ import styles from '@/app/dashboard/dashboard.module.css'
 import { getHubEngagementSummary, getPublicationEngagement, getRecentComments } from '../../intelligence-actions'
 import { BASE_REACTION_SET, ReactionKey } from '@/lib/engagement/reactions'
 
+export const dynamic = 'force-dynamic'
+
 export default async function HubIntelligencePage({
   params
 }: {

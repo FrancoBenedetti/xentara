@@ -2,6 +2,8 @@ import { getHubs, getHubSubscriberCount, Hub } from '../actions'
 import { getHubChannels, getDistributionLogs } from '../hubs/settings-actions'
 import HubSettingsTabs from '@/components/dashboard/HubSettingsTabs'
 
+export const dynamic = 'force-dynamic'
+
 export default async function SettingsPage() {
   const hubsResult = await getHubs()
   

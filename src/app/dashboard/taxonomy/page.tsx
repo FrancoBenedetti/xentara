@@ -6,6 +6,8 @@ import { createClient } from '@/utils/supabase/server'
 import ThemeToggle from '@/components/dashboard/ThemeToggle'
 import { logout } from '@/app/login/actions'
 
+export const dynamic = 'force-dynamic'
+
 export default async function TaxonomyPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const hubs = await getHubs()
   const supabase = await createClient()
@@ -50,6 +52,7 @@ export default async function TaxonomyPage({ searchParams }: { searchParams: Pro
           </div>
         ) : (
           <TaxonomyStudio 
+             key={selectedHubId}
              initialHubs={hubs.map(h => ({ id: h.id, name: h.name }))}
              initialTaxonomy={taxonomy}
              selectedHubId={selectedHubId}

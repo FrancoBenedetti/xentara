@@ -2,6 +2,8 @@ import { getHubs, getPublicationHistory, Hub } from '../actions'
 import PublicationCard from '@/components/dashboard/PublicationCard'
 import styles from '../dashboard.module.css'
 
+export const dynamic = 'force-dynamic'
+
 async function HistorySection({ hub }: { hub: Hub }) {
   const history = await getPublicationHistory(hub.id)
   if (history.length === 0) return null;

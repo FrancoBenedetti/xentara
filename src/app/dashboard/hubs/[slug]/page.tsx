@@ -7,6 +7,8 @@ import IntelligenceFeed from '@/components/dashboard/IntelligenceFeed'
 import SourceFilter from '@/components/dashboard/SourceFilter'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function HubDetailPage({
   params,
   searchParams

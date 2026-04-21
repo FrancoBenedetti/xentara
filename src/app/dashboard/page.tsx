@@ -4,6 +4,8 @@ import CreateHubForm from '@/components/dashboard/CreateHubForm'
 import { createClient } from '@/utils/supabase/server'
 import HubSummaryCard from '@/components/dashboard/HubSummaryCard'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
   const hubs = await getHubs()
   const supabase = await createClient()

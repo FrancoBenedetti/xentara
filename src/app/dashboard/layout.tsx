@@ -1,6 +1,7 @@
 import styles from './dashboard.module.css';
 import DashboardNav from '@/components/dashboard/DashboardNav';
 import { getHubs } from './actions';
+import HelpSystem from '@/components/dashboard/HelpSystem';
 
 export default async function DashboardLayout({
   children,
@@ -16,6 +17,8 @@ export default async function DashboardLayout({
       <main className={styles.mainContent}>
         {children}
       </main>
+
+      <HelpSystem />
     </div>
   );
 }

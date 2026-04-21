@@ -90,7 +90,9 @@ export default function TaxonomyStudio({
   // ── Actions ────────────────────────────────────────────────────────────────
 
   const handleHubChange = (hubId: string) => {
-    router.push(`/dashboard/taxonomy?hubId=${hubId}`)
+    startTransition(() => {
+      router.push(`/dashboard/taxonomy?hubId=${hubId}`)
+    })
   }
 
   const handleConfirm = useCallback((tagId: string) => {

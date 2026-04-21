@@ -156,10 +156,12 @@ export default function RepublishModal({ publication, onClose }: Props) {
             />
           </div>
 
-          {tags.length > 0 && (
-            <div>
-              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Assigned Flavors (Click to suppress)</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Confirmed Hub Flavors (Toggle to exclude)
+            </label>
+            {tags.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
                 {tags.map(tag => (
                   <button
                     key={tag.id}
@@ -170,24 +172,41 @@ export default function RepublishModal({ publication, onClose }: Props) {
                       await setPublicationTagSuppression([tag.id], newSuppressed);
                     }}
                     style={{
-                      padding: '0.4rem 0.8rem',
+                      padding: '0.4rem 0.9rem',
                       fontSize: '0.75rem',
                       fontWeight: 800,
-                      borderRadius: '1rem',
+                      borderRadius: '2rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
                       border: `1px solid ${tag.is_suppressed ? 'var(--border)' : 'var(--indigo)'}`,
-                      background: tag.is_suppressed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.1)',
+                      background: tag.is_suppressed ? 'rgba(255, 255, 255, 0.03)' : 'rgba(99, 102, 241, 0.1)',
                       color: tag.is_suppressed ? 'var(--text-muted)' : 'var(--indigo)',
-                      textDecoration: tag.is_suppressed ? 'line-through' : 'none',
                       cursor: 'pointer',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      opacity: tag.is_suppressed ? 0.6 : 1
                     }}
                   >
-                    {tag.name}
+                    <span style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      borderRadius: '50%', 
+                      background: tag.is_suppressed ? 'var(--text-muted)' : 'var(--indigo)',
+                      boxShadow: tag.is_suppressed ? 'none' : '0 0 8px var(--indigo)'
+                    }}></span>
+                    {tag.name.toUpperCase()}
+                    {tag.is_suppressed && <span style={{ fontSize: '0.6rem', fontWeight: 900 }}>(EXCLUDED)</span>}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div style={{ padding: '1rem', background: 'var(--bg-input)', borderRadius: '0.75rem', border: '1px dotted var(--border)' }}>
+                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
+                  No confirmed hub flavors linked to this item. {publication.tags?.length > 0 ? `(Raw keywords: ${publication.tags.join(', ')})` : ''}
+                </p>
+              </div>
+            )}
+          </div>
 
           <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--indigo)' }}>
             <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--indigo)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Curator Insight (Human Added Value)</label>

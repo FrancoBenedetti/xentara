@@ -577,7 +577,18 @@ export async function reprocessPublication(id: string, url: string) {
 
 export async function getPublicationTags(publicationId: string): Promise<{ id: string; name: string; tag_id: string; is_suppressed: boolean }[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  
+  // 1. Fetch publication to get its raw tags
+  const { data: pub } = await supabase
+    .from('publications')
+    .select('hub_id, tags')
+    .eq('id', publicationId)
+    .single()
+
+  if (!pub) return []
+
+  // 2. Fetch existing links
+  const { data: existingLinks } = await supabase
     .from('publication_hub_tags' as never)
     .select(`
       id,
@@ -586,13 +597,55 @@ export async function getPublicationTags(publicationId: string): Promise<{ id: s
       hub_tags!inner(name)
     `)
     .eq('publication_id', publicationId)
-    
-  return (data || []).map((d: any) => ({
+
+  const linkedTagIds = new Set((existingLinks || []).map((l: any) => l.tag_id))
+  const results = (existingLinks || []).map((d: any) => ({
     id: d.id,
     tag_id: d.tag_id,
     name: d.hub_tags.name,
     is_suppressed: d.is_suppressed
   }))
+
+  // 3. AUTO-SYNC: Check if raw tags now match confirmed hub flavors that aren't linked yet
+  if (pub.tags && pub.tags.length > 0) {
+    const { data: matchingHubTags } = await supabase
+      .from('hub_tags')
+      .select('id, name')
+      .eq('hub_id', pub.hub_id)
+      .eq('is_confirmed', true)
+      .in('name', pub.tags)
+
+    if (matchingHubTags && matchingHubTags.length > 0) {
+      const missingLinks = matchingHubTags
+        .filter(ht => !linkedTagIds.has(ht.id))
+        .map(ht => ({
+          publication_id: publicationId,
+          tag_id: ht.id,
+          is_suppressed: false
+        }))
+
+      if (missingLinks.length > 0) {
+        const { data: newLinks } = await supabase
+          .from('publication_hub_tags' as never)
+          .insert(missingLinks as any)
+          .select('id, tag_id, is_suppressed')
+
+        if (newLinks) {
+          newLinks.forEach((nl: any) => {
+            const ht = matchingHubTags.find(t => t.id === nl.tag_id)
+            results.push({
+              id: nl.id,
+              tag_id: nl.tag_id,
+              name: ht?.name || 'Unknown',
+              is_suppressed: nl.is_suppressed
+            })
+          })
+        }
+      }
+    }
+  }
+    
+  return results
 }
 
 export async function setPublicationTagSuppression(linkIds: string[], is_suppressed: boolean) {
