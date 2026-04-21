@@ -3,12 +3,12 @@ import { createClient } from '@/utils/supabase/server'
 /**
  * AI Engine to summarize transcripts with various providers.
  */
-export async function summarizeWithAI(transcript: string, title: string, metadata: any) {
+export async function summarizeWithAI(transcript: string, title: string, metadata: any, contentLanguage?: string) {
   let lastError: Error | null = null;
 
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     try {
-      return await summarizeGemini(transcript, title);
+      return await summarizeGemini(transcript, title, contentLanguage);
     } catch (e: any) {
       console.warn("Gemini AI failed, falling back to Inception/Local...", e.message);
       lastError = e;
@@ -17,7 +17,7 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
 
   if (process.env.INCEPTION_API_KEY) {
     try {
-      return await summarizeInception(transcript, title);
+      return await summarizeInception(transcript, title, contentLanguage);
     } catch (e: any) {
       console.warn("Inception Labs failed, falling back...", e.message);
       lastError = e;
@@ -34,8 +34,9 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
   return baseContent.substring(0, 1000) + "... [Note: AI Neural Link was unconfigured, showing raw excerpt]";
 }
 
-async function summarizeGemini(transcript: string, title: string) {
-  const prompt = `Summarize this content titled "${title}". Focus on key analytical facts and concise insights. Format as Markdown.\n\nContent:\n${transcript.substring(0, 30000)}`;
+async function summarizeGemini(transcript: string, title: string, contentLanguage?: string) {
+  const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The output summary MUST be written in ${contentLanguage}. ` : '';
+  const prompt = `Summarize this content titled "${title}". Focus on key analytical facts and concise insights. Format as Markdown. ${languageInstruction}\n\nContent:\n${transcript.substring(0, 30000)}`;
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000); // Gemini can take longer for large contexts
@@ -64,8 +65,9 @@ async function summarizeGemini(transcript: string, title: string) {
   }
 }
 
-async function summarizeInception(transcript: string, title: string) {
-  const prompt = `Summarize this content titled "${title}". Focus on key analytical facts and concise insights. Format as Markdown.\n\nContent:\n${transcript.substring(0, 15000)}`;
+async function summarizeInception(transcript: string, title: string, contentLanguage?: string) {
+  const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The output summary MUST be written in ${contentLanguage}. ` : '';
+  const prompt = `Summarize this content titled "${title}". Focus on key analytical facts and concise insights. Format as Markdown. ${languageInstruction}\n\nContent:\n${transcript.substring(0, 15000)}`;
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -102,6 +104,7 @@ async function summarizeInception(transcript: string, title: string) {
 
 export interface TasteAnalysis {
   byline: string;
+  synopsis: string;
   sentiment: number;
   tags: string[];
   new_suggestions?: { name: string, description: string }[];
@@ -111,16 +114,16 @@ export interface TasteAnalysis {
  * Predicts the "Taste" of a publication (Sentiment, Tags, Byline).
  * Scoped to the specific Hub's taxonomy and strictness rules.
  */
-export async function predictTaste(summary: string | null | undefined, title: string, hubId: string): Promise<TasteAnalysis> {
+export async function predictTaste(summary: string | null | undefined, title: string, hubId: string, contentLanguage?: string): Promise<TasteAnalysis> {
   if (!summary || summary.trim().length === 0) {
-    return { byline: "No content to analyze.", sentiment: 0, tags: [] };
+    return { byline: "No content to analyze.", synopsis: "", sentiment: 0, tags: [] };
   }
 
   let lastError: Error | null = null;
 
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     try {
-        return await predictTasteGemini(summary, title, hubId);
+        return await predictTasteGemini(summary, title, hubId, contentLanguage);
     } catch (e: any) {
         console.warn("Gemini Taste Prediction failed, falling back to Inception...", e.message);
         lastError = e;
@@ -136,6 +139,8 @@ export async function predictTaste(summary: string | null | undefined, title: st
   const taxonomyDesc = tags?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
   const isStrict = hub?.strictness === 'strict';
 
+  const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The byline and synopsis MUST be written in ${contentLanguage}.` : '';
+
   const prompt = `
     Analyze this content titled "${title}" for the Xentara Collective.
     
@@ -147,10 +152,13 @@ export async function predictTaste(summary: string | null | undefined, title: st
     2. Provide a short, compelling 150-character byline.
     3. Sentiment score -1.0 to 1.0.
     4. Limit result to 5 total tags.
+    5. Provide a 2-3 sentence 'synopsis' of the article.
+    ${languageInstruction}
 
     Return ONLY a JSON object:
     {
       "byline": "string",
+      "synopsis": "string",
       "sentiment": number,
       "tags": ["string", ...],
       "new_suggestions": [{"name": "string", "description": "string"}] 
@@ -194,7 +202,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
         }
         return result;
     } catch (e) {
-        return { byline: "Intelligence processed.", sentiment: 0.5, tags: ["active"] };
+        return { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] };
     }
   } catch (error: any) {
     clearTimeout(timeoutId);
@@ -202,13 +210,14 @@ export async function predictTaste(summary: string | null | undefined, title: st
     throw error;
   }
 }
-async function predictTasteGemini(summary: string, title: string, hubId: string): Promise<TasteAnalysis> {
+async function predictTasteGemini(summary: string, title: string, hubId: string, contentLanguage?: string): Promise<TasteAnalysis> {
     const supabase = await createClient()
     const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
     const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true);
     
     const taxonomyDesc = tags?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
     const isStrict = hub?.strictness === 'strict';
+    const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The byline and synopsis MUST be written in ${contentLanguage}.` : '';
 
     const prompt = `
       Analyze this content titled "${title}" for the Xentara Collective.
@@ -221,10 +230,13 @@ async function predictTasteGemini(summary: string, title: string, hubId: string)
       2. Provide a short, compelling 150-character byline.
       3. Sentiment score -1.0 to 1.0. 
       4. Limit result to 5 total tags.
+      5. Provide a 2-3 sentence 'synopsis' of the article.
+      ${languageInstruction}
 
       Return ONLY a JSON object:
       {
         "byline": "string",
+        "synopsis": "string",
         "sentiment": number,
         "tags": ["string", ...],
         "new_suggestions": [{"name": "string", "description": "string"}] 

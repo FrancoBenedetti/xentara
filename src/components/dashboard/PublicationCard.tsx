@@ -66,8 +66,23 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect 
                 onClick={(e) => e.stopPropagation()}
              />
            )}
-           <div className={styles.pubCardSource}>
-              {pub.monitored_sources?.name || 'MEDIA ITEM'}
+           <div style={{ display: 'flex', flexDirection: 'column' }}>
+             <div className={styles.pubCardSource}>
+                {pub.monitored_sources?.name || 'MEDIA ITEM'}
+             </div>
+             {(() => {
+               const dateStr = pub.metadata?.date || pub.metadata?.pubDate || pub.published_at || pub.created_at;
+               if (!dateStr) return null;
+               try {
+                 return (
+                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
+                     {new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                   </div>
+                 );
+               } catch (e) {
+                 return null;
+               }
+             })()}
            </div>
          </div>
          {getStatusBadge(pub.status)}
@@ -92,6 +107,14 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect 
       {!isProcessing && pub.byline && (
         <div className={styles.pubCardByline}>
            {pub.byline}
+        </div>
+      )}
+
+      {!isProcessing && pub.synopsis && (
+        <div className={styles.pubCardInsight} style={{ background: 'transparent', border: 'none', padding: '0 1rem', marginTop: '-0.5rem' }}>
+          <p className={styles.pubCardInsightText} style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>
+            {pub.synopsis}
+          </p>
         </div>
       )}
 

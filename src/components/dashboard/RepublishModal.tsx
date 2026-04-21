@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Publication, publishPublication } from '@/app/dashboard/actions'
+import { Publication, publishPublication, getPublicationTags, setPublicationTagSuppression } from '@/app/dashboard/actions'
 
 const SimpleMarkdown = ({ children }: { children: string }) => {
   if (!children) return null;
@@ -75,9 +75,15 @@ export default function RepublishModal({ publication, onClose }: Props) {
   const [formData, setFormData] = useState({
     title: publication.title,
     byline: publication.byline || '',
+    synopsis: publication.synopsis || '',
     summary: publication.summary || '',
     curator_commentary: publication.curator_commentary || ''
   })
+  const [tags, setTags] = useState<{ id: string; name: string; tag_id: string; is_suppressed: boolean }[]>([])
+
+  useEffect(() => {
+    getPublicationTags(publication.id).then(setTags).catch(console.error)
+  }, [publication.id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,6 +93,7 @@ export default function RepublishModal({ publication, onClose }: Props) {
       const data = new FormData()
       data.append('title', formData.title)
       data.append('byline', formData.byline)
+      data.append('synopsis', formData.synopsis)
       data.append('summary', formData.summary)
       data.append('curator_commentary', formData.curator_commentary)
       
@@ -138,6 +145,49 @@ export default function RepublishModal({ publication, onClose }: Props) {
               style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600, resize: 'none' }}
             />
           </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Refined Synopsis (AI Generated)</label>
+            <textarea 
+              value={formData.synopsis} 
+              onChange={e => setFormData({...formData, synopsis: e.target.value})}
+              rows={3}
+              style={{ width: '100%', padding: '0.8rem 1rem', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 600, resize: 'none' }}
+            />
+          </div>
+
+          {tags.length > 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Assigned Flavors (Click to suppress)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {tags.map(tag => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={async () => {
+                      const newSuppressed = !tag.is_suppressed;
+                      setTags(tags.map(t => t.id === tag.id ? { ...t, is_suppressed: newSuppressed } : t));
+                      await setPublicationTagSuppression([tag.id], newSuppressed);
+                    }}
+                    style={{
+                      padding: '0.4rem 0.8rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      borderRadius: '1rem',
+                      border: `1px solid ${tag.is_suppressed ? 'var(--border)' : 'var(--indigo)'}`,
+                      background: tag.is_suppressed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.1)',
+                      color: tag.is_suppressed ? 'var(--text-muted)' : 'var(--indigo)',
+                      textDecoration: tag.is_suppressed ? 'line-through' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--indigo)' }}>
             <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--indigo)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Curator Insight (Human Added Value)</label>

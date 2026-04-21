@@ -58,7 +58,7 @@ export default async function HubDetailPage({
           
           <aside className={styles.hubDetailAside}>
             <h3 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Source Registry</h3>
-            <SourceList hubId={hub.id} />
+            <SourceList hubId={hub.id} activeSourceId={sourceId} />
           </aside>
         </div>
       </div>

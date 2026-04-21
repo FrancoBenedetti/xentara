@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { unstable_rethrow } from 'next/navigation'
 import { inngest } from '@/inngest/client'
 
 /**
@@ -17,6 +18,7 @@ export interface Hub {
   brand_color?: string;
   logo_url?: string;
   strictness?: 'exploratory' | 'strict';
+  content_language?: string; // e.g. 'en-GB', 'af', 'original'
   role?: 'owner' | 'editor' | 'viewer'; // User's role in this hub
 }
 
@@ -56,6 +58,7 @@ export interface Publication {
   title: string;
   byline: string;
   summary: string;
+  synopsis?: string;
   status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed' | 'published' | 'purged';
   source_url: string;
   tags: string[];
@@ -68,6 +71,8 @@ export interface Publication {
   monitored_sources?: {
     name: string;
   };
+  metadata?: any;
+  created_at?: string;
 }
 
 interface PublicationResult {
@@ -122,6 +127,7 @@ export async function getHubs(): Promise<Hub[]> {
       role: m.role
     })) || []
   } catch (err) {
+    unstable_rethrow(err)
     console.error('getHubs exception:', err)
     return []
   }
@@ -147,6 +153,7 @@ export async function getHubSubscriberCount(hubId: string): Promise<number> {
     }
     return count ?? 0
   } catch (err) {
+    unstable_rethrow(err)
     console.error('getHubSubscriberCount exception:', err)
     return 0
   }
@@ -276,7 +283,7 @@ export async function getSources(hubId: string): Promise<MonitoredSource[]> {
     .from('monitored_sources' as never)
     .select('*')
     .eq('hub_id', hubId)
-    .order('created_at', { ascending: false })
+    .order('name', { ascending: true })
 
   return (sources as unknown as MonitoredSource[]) || []
 }
@@ -367,6 +374,7 @@ export async function publishPublication(id: string, formData: FormData) {
   const title = formData.get('title') as string
   const byline = formData.get('byline') as string
   const summary = formData.get('summary') as string
+  const synopsis = formData.get('synopsis') as string
   const curator_commentary = formData.get('curator_commentary') as string
 
   const { error } = await supabase
@@ -375,6 +383,7 @@ export async function publishPublication(id: string, formData: FormData) {
       title,
       byline,
       summary,
+      synopsis,
       curator_commentary,
       status: 'published',
       is_published: true,
@@ -480,6 +489,17 @@ export async function updateHubStrictness(id: string, strictness: string) {
   revalidatePath('/dashboard/settings')
 }
 
+export async function updateHubContentLanguage(id: string, content_language: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('hubs' as never)
+    .update({ content_language } as never)
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/settings')
+}
+
 export async function confirmHubTag(id: string) {
   const supabase = await createClient()
   const { error } = await supabase
@@ -555,6 +575,37 @@ export async function reprocessPublication(id: string, url: string) {
   revalidatePath('/dashboard')
 }
 
+export async function getPublicationTags(publicationId: string): Promise<{ id: string; name: string; tag_id: string; is_suppressed: boolean }[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('publication_hub_tags' as never)
+    .select(`
+      id,
+      is_suppressed,
+      tag_id,
+      hub_tags!inner(name)
+    `)
+    .eq('publication_id', publicationId)
+    
+  return (data || []).map((d: any) => ({
+    id: d.id,
+    tag_id: d.tag_id,
+    name: d.hub_tags.name,
+    is_suppressed: d.is_suppressed
+  }))
+}
+
+export async function setPublicationTagSuppression(linkIds: string[], is_suppressed: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('publication_hub_tags' as never)
+    .update({ is_suppressed } as never)
+    .in('id', linkIds)
+    
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
 /**
  * RSSHUB INTEGRATION
  */
@@ -597,6 +648,45 @@ export async function getRouteRequests() {
   }
 
   return data || []
+}
+
+/**
+ * SOURCE FILTER RULES
+ */
+export async function getSourceRules(sourceId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase.from('source_filter_rules' as never).select('*').eq('source_id', sourceId).order('created_at', { ascending: false })
+  return data || []
+}
+
+export async function addSourceRule(sourceId: string, rule_type: 'blocklist' | 'allowlist', value: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('source_filter_rules' as never).insert({
+    source_id: sourceId,
+    rule_type,
+    match_mode: 'keywords',
+    value
+  } as never)
+  if (error) throw new Error(error.message)
+}
+
+export async function toggleSourceRule(ruleId: string, is_active: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('source_filter_rules' as never).update({ is_active } as never).eq('id', ruleId)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteSourceRule(ruleId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('source_filter_rules' as never).delete().eq('id', ruleId)
+  if (error) throw new Error(error.message)
+}
+
+export async function executePurge(hubId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('publications' as never).update({ status: 'purged' } as never).eq('hub_id', hubId).eq('status', 'auto_purge_tagged')
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
 }
 
 export async function searchRSSHubRoutesAction(searchTerm: string) {

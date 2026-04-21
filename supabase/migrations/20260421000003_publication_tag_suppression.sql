@@ -1,0 +1,2 @@
+ALTER TABLE publication_hub_tags 
+  ADD COLUMN IF NOT EXISTS is_suppressed BOOLEAN NOT NULL DEFAULT FALSE;

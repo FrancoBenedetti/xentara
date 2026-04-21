@@ -5,6 +5,7 @@ import Link from 'next/link'
 import styles from '@/app/dashboard/dashboard.module.css'
 import DistributionSettings from '@/components/dashboard/DistributionSettings'
 import EngagementSettings from '@/components/dashboard/EngagementSettings'
+import ContentSettings from '@/components/dashboard/ContentSettings'
 
 export default async function HubSettingsPage({
   params
@@ -46,6 +47,7 @@ export default async function HubSettingsPage({
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <DistributionSettings hubId={hub.id} initialChannels={channels} logs={logs} />
           <EngagementSettings hubId={hub.id} initialConfig={engagementConfig} />
+          <ContentSettings hubId={hub.id} initialLanguage={hub.content_language} />
         </div>
       </div>
     </div>

@@ -4,12 +4,29 @@ import { getSources, getRouteRequests } from '@/app/dashboard/actions'
 import DeleteSourceButton from './DeleteSourceButton'
 import EditSourceButton from './EditSourceButton'
 import RefreshSourceButton from './RefreshSourceButton'
+import SourceRulesPanel from './SourceRulesPanel'
 import { useEffect, useState } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 
-export default function SourceList({ hubId }: { hubId: string }) {
+export default function SourceList({ hubId, activeSourceId }: { hubId: string, activeSourceId?: string }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const toggleFilter = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (activeSourceId === id) {
+      params.delete('s')
+    } else {
+      params.set('s', id)
+    }
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
   const [sources, setSources] = useState<any[]>([])
   const [routeRequests, setRouteRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeRulesSource, setActiveRulesSource] = useState<{ id: string; name: string } | null>(null)
   
   // Load sources
   useEffect(() => {
@@ -44,9 +61,9 @@ export default function SourceList({ hubId }: { hubId: string }) {
                   flexDirection: 'column',
                   gap: '0.25rem',
                   padding: '1rem',
-                  border: '1px solid var(--border)',
+                  border: activeSourceId === source.id ? '2px solid var(--indigo)' : '1px solid var(--border)',
                   borderRadius: '0.75rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  backgroundColor: activeSourceId === source.id ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255, 255, 255, 0.02)',
                   boxShadow: 'var(--card-shadow)',
                   transition: 'all 0.2s',
                   position: 'relative'
@@ -67,6 +84,36 @@ export default function SourceList({ hubId }: { hubId: string }) {
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', marginTop: '0.5rem', gap: '0.75rem' }}>
+                    <button 
+                      onClick={() => toggleFilter(source.id)}
+                      style={{ 
+                        padding: '0.4rem 0.8rem', 
+                        fontSize: '0.65rem', 
+                        fontWeight: 900, 
+                        border: activeSourceId === source.id ? 'none' : '1px solid var(--border)',
+                        background: activeSourceId === source.id ? 'var(--indigo)' : 'transparent',
+                        color: activeSourceId === source.id ? 'white' : 'var(--text-muted)',
+                        borderRadius: '0.4rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {activeSourceId === source.id ? 'ACTIVE' : 'FILTER'}
+                    </button>
+                    <button 
+                      onClick={() => setActiveRulesSource({ id: source.id, name: source.name })}
+                      style={{ 
+                        padding: '0.4rem 0.8rem', 
+                        fontSize: '0.65rem', 
+                        fontWeight: 900, 
+                        border: '1px solid var(--border)',
+                        background: 'transparent',
+                        color: 'var(--text-muted)',
+                        borderRadius: '0.4rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      RULES
+                    </button>
                     <RefreshSourceButton id={source.id} url={source.url} type={source.type} />
                     <EditSourceButton source={source} />
                     <DeleteSourceButton id={source.id} />
@@ -103,6 +150,14 @@ export default function SourceList({ hubId }: { hubId: string }) {
             ))}
           </ul>
         </div>
+      )}
+
+      {activeRulesSource && (
+        <SourceRulesPanel 
+          sourceId={activeRulesSource.id} 
+          sourceName={activeRulesSource.name}
+          onClose={() => setActiveRulesSource(null)} 
+        />
       )}
     </div>
   )

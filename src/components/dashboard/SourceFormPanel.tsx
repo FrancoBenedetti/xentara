@@ -30,7 +30,7 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
   // RSSHub search state
   const [searchTerm, setSearchTerm] = useState(() => {
     // In edit mode, seed the search field with the existing URL/route
-    return source?.type === 'rsshub' ? (source?.url ?? '') : ''
+    return source?.url ?? ''
   })
   const [suggestions, setSuggestions] = useState<RSSHubRouteSuggestion[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -268,7 +268,7 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
               >
                 <option value="rsshub">RSSHub Managed Route</option>
                 <option value="rss">Standard RSS Feed</option>
-                <option value="youtube">YouTube</option>
+                {/* <option value="youtube">YouTube</option> */}
               </select>
               {isEditing && source?.type !== type && (
                 <p style={{ fontSize: '0.65rem', color: '#f59e0b', marginTop: '0.4rem', fontWeight: 700 }}>
@@ -303,6 +303,13 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
                     setSearchTerm(e.target.value)
                     if (previewRoute) setPreviewRoute(null)
                   }}
+                  onBlur={() => {
+                    if (type === 'rsshub' && /^@[\w.-]+$/.test(searchTerm)) {
+                       const transformed = `/youtube/user/${searchTerm.replace('@', '')}`
+                       setSearchTerm(transformed)
+                       if (!previewRoute) handlePreview(transformed)
+                    }
+                  }}
                   placeholder={type === 'rsshub' ? '/maroelamedia/nuus or search…' : 'https://… or @handle'}
                   required
                   style={{ ...fieldStyle, flex: 1 }}
@@ -321,7 +328,7 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
               {/* Helper text */}
               {type === 'rsshub' && !previewRoute && !searchTerm && (
                 <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.6rem', lineHeight: 1.5 }}>
-                  ℹ️ Search a website name or paste an exact route path. Browse the{' '}
+                  ℹ️ Search a website name or paste an exact route path. For YouTube channels, enter <code>@username</code>. Browse the{' '}
                   <a href="https://docs.rsshub.app/routes/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--indigo)', textDecoration: 'underline' }}>
                     available routes directory
                   </a>.

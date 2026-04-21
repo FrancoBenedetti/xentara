@@ -62,8 +62,9 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
 
     try {
         const supabase = createServiceClient();
-        const { data: pub } = await (supabase.from('publications') as any).select('hub_id').eq('id', publicationId).single();
+        const { data: pub } = await (supabase.from('publications') as any).select('hub_id, source_id, hubs(content_language)').eq('id', publicationId).single();
         if (!pub) throw new Error("Publication Context Lost");
+        const contentLanguage = pub.hubs?.content_language || 'en-GB';
 
         // 1. CONTENT INGESTION
         const rawData = await step.run("fetch-raw-content", async () => {
@@ -101,7 +102,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                 const supabase = createServiceClient();
                 await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId).throwOnError();
                 try {
-                    return await summarizeWithAI(transcript, rawData.title, rawData.metadata);
+                    return await summarizeWithAI(transcript, rawData.title, rawData.metadata, contentLanguage);
                 } catch (e) {
                     console.error("[PIPELINE] AI Summarization Error:", e);
                     // Return local fallback immediately instead of failing the step
@@ -113,10 +114,10 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             // 3. TASTE PREDICTOR AGENT: taxonomy-aware analysis
             const analysis = await step.run("predict-taste-and-taxonomy", async () => {
                 try {
-                    return await predictTaste(summary, rawData.title, pub.hub_id);
+                    return await predictTaste(summary, rawData.title, pub.hub_id, contentLanguage);
                 } catch (e) {
                     console.error("[PIPELINE] AI Taste Prediction Error:", e);
-                    return { byline: "Intelligence processed.", sentiment: 0.5, tags: ["active"] };
+                    return { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] };
                 }
             });
 
@@ -161,6 +162,56 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                 }
             });
 
+            // 5. FILTER RULES EVALUATION
+            const evaluation = await step.run("evaluate-source-rules", async () => {
+                const supabase = createServiceClient();
+                const { data: rules } = await (supabase.from('source_filter_rules') as any)
+                   .select('*')
+                   .eq('source_id', pub.source_id)
+                   .eq('is_active', true);
+                   
+                if (!rules || rules.length === 0) return { matched: false };
+                
+                const titleText = (rawData.title || "").toLowerCase();
+                const contentText = (transcript || "").toLowerCase();
+                
+                let blocklistMatched = false;
+                let blocklistReason = '';
+                
+                let hasAllowlist = false;
+                let allowlistMatched = false;
+                
+                for (const rule of rules) {
+                    if (rule.match_mode !== 'keywords') continue; // Skip description matching for v1
+                    
+                    const keywords = rule.value.toLowerCase().split(',').map((k: string) => k.trim()).filter(Boolean);
+                    if (rule.rule_type === 'blocklist') {
+                        const hit = keywords.find((k: string) => titleText.includes(k) || contentText.includes(k));
+                        if (hit) {
+                            blocklistMatched = true;
+                            blocklistReason = `Matched rule: [${hit}]`;
+                            break;
+                        }
+                    } else if (rule.rule_type === 'allowlist') {
+                        hasAllowlist = true;
+                        const hit = keywords.find((k: string) => titleText.includes(k) || contentText.includes(k));
+                        if (hit) {
+                            allowlistMatched = true;
+                        }
+                    }
+                }
+                
+                if (blocklistMatched) {
+                    return { matched: true, reason: blocklistReason };
+                }
+                
+                if (hasAllowlist && !allowlistMatched) {
+                    return { matched: true, reason: 'Failed to match any allowlist keywords' };
+                }
+                
+                return { matched: false };
+            });
+
             await step.run("finalize-publication", async () => {
                 console.log(`[PIPELINE] FINALIZING publication: ${publicationId}`);
                 const supabase = createServiceClient();
@@ -170,11 +221,13 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         title: rawData.title,
                         raw_content: transcript,
                         summary: summary,
+                        synopsis: analysis.synopsis,
                         byline: analysis.byline,
                         sentiment_score: analysis.sentiment,
                         tags: analysis.tags,
                         error_message: null,
-                        status: 'ready'
+                        status: evaluation.matched ? 'auto_purge_tagged' : 'ready',
+                        purge_reason: evaluation.matched ? evaluation.reason : null
                     })
                     .eq('id', publicationId)
                     .throwOnError();
