@@ -207,7 +207,7 @@ export async function inviteMember(hubId: string, email: string, role: string) {
     if (error) throw new Error(error.message)
   }
 
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
   return { success: true }
 }
 
@@ -220,7 +220,7 @@ export async function updateMemberRole(hubId: string, userId: string, role: stri
     .eq('user_id', userId)
 
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
   return { success: true }
 }
 
@@ -233,7 +233,7 @@ export async function removeMember(hubId: string, userId: string) {
     .eq('user_id', userId)
 
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
   return { success: true }
 }
 
@@ -430,7 +430,7 @@ export async function updateHubBranding(id: string, formData: FormData) {
 
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
 }
 
 /**
@@ -486,7 +486,7 @@ export async function updateHubStrictness(id: string, strictness: string) {
     .eq('id', id)
 
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
 }
 
 export async function updateHubContentLanguage(id: string, content_language: string) {
@@ -497,7 +497,7 @@ export async function updateHubContentLanguage(id: string, content_language: str
     .eq('id', id)
 
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
 }
 
 export async function confirmHubTag(id: string) {
@@ -508,7 +508,7 @@ export async function confirmHubTag(id: string) {
     .eq('id', id)
 
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
 }
 
 export async function updateHubTag(id: string, name: string, description: string) {
@@ -519,14 +519,14 @@ export async function updateHubTag(id: string, name: string, description: string
     .eq('id', id)
 
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
 }
 
 export async function removeHubTag(id: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('hub_tags' as never).delete().eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
 }
 
 export async function addHubTag(hubId: string, name: string, description: string) {
@@ -539,7 +539,7 @@ export async function addHubTag(hubId: string, name: string, description: string
   } as never)
 
   if (error) throw new Error(error.message)
-  revalidatePath('/dashboard/settings')
+  revalidatePath('/dashboard', 'layout')
 }
 
 export async function reprocessPublication(id: string, url: string) {
