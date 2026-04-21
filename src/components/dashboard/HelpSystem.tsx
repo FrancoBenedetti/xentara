@@ -141,16 +141,16 @@ Once you click "Confirm & Publish", the article moves from your private board to
           height: '100vh',
           background: 'var(--bg-surface)',
           borderLeft: '1px solid var(--border)',
-          boxShadow: '-10px 0 50px rgba(0,0,0,0.5)',
+          boxShadow: '-20px 0 60px rgba(0,0,0,0.6)',
           zIndex: 1000,
           display: 'flex',
           flexDirection: 'column',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
           color: 'var(--text-main)'
         }}
       >
-        <div style={{ padding: '2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)' }}>
           <div>
             <h2 style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--indigo)', letterSpacing: '0.2em', margin: 0, textTransform: 'uppercase' }}>Knowledge Base</h2>
             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>Xentara Studio Help & Documentation</p>
@@ -162,20 +162,29 @@ Once you click "Confirm & Publish", the article moves from your private board to
               border: '1px solid var(--border)', 
               color: 'var(--text-main)', 
               cursor: 'pointer', 
-              width: '2rem',
-              height: '2rem',
-              borderRadius: '0.5rem',
+              width: '2.5rem',
+              height: '2.5rem',
+              borderRadius: '0.75rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 900 
+              fontWeight: 900,
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--indigo)'
+                e.currentTarget.style.transform = 'rotate(90deg)'
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)'
+                e.currentTarget.style.transform = 'rotate(0deg)'
             }}
           >✕</button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', background: 'var(--bg-surface)' }}>
           {!selectedArticle ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {articles.map(article => (
                 <button
                   key={article.slug}
@@ -184,27 +193,30 @@ Once you click "Confirm & Publish", the article moves from your private board to
                     textAlign: 'left',
                     background: 'var(--bg-input)',
                     border: '1px solid var(--border)',
-                    borderRadius: '1rem',
-                    padding: '1.5rem',
+                    borderRadius: '1.25rem',
+                    padding: '1.75rem',
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    outline: 'none'
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    outline: 'none',
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
                   }}
                   onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = 'var(--indigo)'
-                      e.currentTarget.style.background = 'var(--bg-surface)'
+                      e.currentTarget.style.transform = 'translateY(-4px)'
+                      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.2)'
                   }}
                   onMouseLeave={(e) => {
                       e.currentTarget.style.borderColor = 'var(--border)'
-                      e.currentTarget.style.background = 'var(--bg-input)'
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)'
                   }}
                 >
-                  <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>{article.title}</h3>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{article.title}</h3>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, fontWeight: 500 }}>
                     {article.description}
                   </p>
-                  <div style={{ marginTop: '1rem', fontSize: '0.7rem', color: 'var(--indigo)', fontWeight: 800, letterSpacing: '0.05em' }}>
-                    READ ARTICLE →
+                  <div style={{ marginTop: '1.25rem', fontSize: '0.75rem', color: 'var(--indigo)', fontWeight: 900, letterSpacing: '0.1em' }}>
+                    OPEN DOCUMENTATION →
                   </div>
                 </button>
               ))}
