@@ -6,19 +6,25 @@ import { revalidatePath } from 'next/cache'
 import { getURL } from '@/utils/url'
 
 export async function login(formData: FormData) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  // type-casting here for convenience
-  // in practice, you should use a library like zod to validate data
-  const data = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-  }
+    const data = {
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
+    }
 
-  const { error } = await supabase.auth.signInWithPassword(data)
+    const { error } = await supabase.auth.signInWithPassword(data)
 
-  if (error) {
-    throw new Error(error.message)
+    if (error) {
+      return error.message
+    }
+  } catch (err: unknown) {
+    // If it's a redirect error, re-throw it so Next.js handles it
+    if (err && typeof err === 'object' && 'digest' in err && (err.digest as string).startsWith('NEXT_REDIRECT')) {
+      throw err
+    }
+    return err instanceof Error ? err.message : 'An unknown error occurred'
   }
 
   revalidatePath('/', 'layout')
@@ -26,22 +32,29 @@ export async function login(formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const data = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-  }
+    const data = {
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
+    }
 
-  const { error } = await supabase.auth.signUp({
-    ...data,
-    options: {
-      emailRedirectTo: `${getURL()}/auth/callback`,
-    },
-  })
+    const { error } = await supabase.auth.signUp({
+      ...data,
+      options: {
+        emailRedirectTo: `${getURL()}/auth/callback`,
+      },
+    })
 
-  if (error) {
-    throw new Error(error.message)
+    if (error) {
+      return error.message
+    }
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'digest' in err && (err.digest as string).startsWith('NEXT_REDIRECT')) {
+      throw err
+    }
+    return err instanceof Error ? err.message : 'An unknown error occurred'
   }
 
   revalidatePath('/', 'layout')

@@ -10,18 +10,10 @@ export default function LoginPage() {
   // React 19 / Next 15 Pattern
   const [error, action, isPending] = useActionState(
     async (_prev: string | null, formData: FormData) => {
-      try {
-        if (isLogin) {
-          await login(formData)
-        } else {
-          await signup(formData)
-        }
-        return null
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          return err.message
-        }
-        return 'An unknown error occurred'
+      if (isLogin) {
+        return await login(formData)
+      } else {
+        return await signup(formData)
       }
     },
     null

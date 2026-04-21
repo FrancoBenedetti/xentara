@@ -1,13 +1,3 @@
-/* Using global theme variables from globals.css */
-:root {
-  --primary: var(--indigo);
-  --primary-hover: #4f46e5;
-  --sidebar-bg: var(--bg-surface);
-  --card-bg: var(--bg-surface);
-  --border: var(--border);
-  --text-muted: var(--text-muted);
-}
-
 .dashboardLayout {
   display: flex;
   min-height: 100vh;

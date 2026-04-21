@@ -198,12 +198,14 @@ Once you click "Confirm & Publish", the article moves from your private board to
                     cursor: 'pointer',
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     outline: 'none',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                    position: 'relative',
+                    overflow: 'hidden'
                   }}
                   onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = 'var(--indigo)'
                       e.currentTarget.style.transform = 'translateY(-4px)'
-                      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.2)'
+                      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.3)'
                   }}
                   onMouseLeave={(e) => {
                       e.currentTarget.style.borderColor = 'var(--border)'
@@ -212,11 +214,11 @@ Once you click "Confirm & Publish", the article moves from your private board to
                   }}
                 >
                   <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{article.title}</h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6, fontWeight: 500 }}>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', opacity: 0.7, lineHeight: 1.6, fontWeight: 500 }}>
                     {article.description}
                   </p>
-                  <div style={{ marginTop: '1.25rem', fontSize: '0.75rem', color: 'var(--indigo)', fontWeight: 900, letterSpacing: '0.1em' }}>
-                    OPEN DOCUMENTATION →
+                  <div style={{ marginTop: '1.25rem', fontSize: '0.75rem', color: 'var(--indigo)', fontWeight: 900, letterSpacing: '0.12em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    OPEN DOCUMENTATION <span style={{ transition: 'transform 0.2s' }}>→</span>
                   </div>
                 </button>
               ))}
