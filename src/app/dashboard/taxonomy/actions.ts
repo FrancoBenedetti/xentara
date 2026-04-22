@@ -13,6 +13,17 @@ export interface TagTranslation {
   description?: string
 }
 
+/** A tag enriched with its cross-language translations (flavors) */
+export interface TagWithFlavors {
+  id: string
+  hub_id: string
+  name: string
+  description: string
+  is_confirmed: boolean
+  language: string
+  flavors: TagTranslation[]
+}
+
 // ── Translation actions ────────────────────────────────────────────────────
 
 /** Fetch all translations for a single tag */
@@ -88,8 +99,8 @@ export async function deleteTagTranslation(tagId: string, language: string): Pro
 export async function fetchTaxonomy(hubId: string) {
   const supabase = await createClient()
   
-  const { data: tags, error } = await supabase
-    .from('hub_tags')
+  const { data: tags, error } = await (supabase
+    .from('hub_tags' as never) as any)
     .select('*')
     .eq('hub_id', hubId)
     .order('is_confirmed', { ascending: false })
@@ -100,9 +111,67 @@ export async function fetchTaxonomy(hubId: string) {
     return { confirmed: [], unconfirmed: [] }
   }
 
+  const allTags = (tags as any[]) || []
   return {
-    confirmed: tags.filter(t => t.is_confirmed),
-    unconfirmed: tags.filter(t => !t.is_confirmed)
+    confirmed: allTags.filter((t: any) => t.is_confirmed),
+    unconfirmed: allTags.filter((t: any) => !t.is_confirmed),
+  }
+}
+
+/**
+ * Fetch tags for a hub filtered by language.
+ * Returns tags whose `language` matches `lang`, each with their translations
+ * from other languages ("flavors") eagerly loaded.
+ */
+export async function getTagsByLanguageWithFlavors(
+  hubId: string,
+  lang: string
+): Promise<{
+  confirmed: (TagWithFlavors)[]
+  unconfirmed: (TagWithFlavors)[]
+}> {
+  const supabase = await createClient()
+
+  // 1. Fetch tags in the requested language
+  const { data: tags, error } = await (supabase
+    .from('hub_tags' as never) as any)
+    .select('*')
+    .eq('hub_id', hubId)
+    .eq('language', lang)
+    .order('is_confirmed', { ascending: false })
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching taxonomy by language:', error)
+    return { confirmed: [], unconfirmed: [] }
+  }
+
+  const allTags = (tags as any[]) || []
+  if (allTags.length === 0) return { confirmed: [], unconfirmed: [] }
+
+  // 2. Bulk-fetch translations for all these tags
+  const tagIds = allTags.map((t: any) => t.id)
+  const { data: translations } = await (supabase
+    .from('hub_tag_translations' as never) as any)
+    .select('*')
+    .in('tag_id', tagIds)
+    .order('language', { ascending: true })
+
+  const translationsByTagId: Record<string, TagTranslation[]> = {}
+  for (const tr of (translations as TagTranslation[]) || []) {
+    if (!translationsByTagId[tr.tag_id]) translationsByTagId[tr.tag_id] = []
+    translationsByTagId[tr.tag_id].push(tr)
+  }
+
+  const withFlavors: TagWithFlavors[] = allTags.map((t: any) => ({
+    ...t,
+    language: t.language || lang,
+    flavors: translationsByTagId[t.id] || [],
+  }))
+
+  return {
+    confirmed: withFlavors.filter(t => t.is_confirmed),
+    unconfirmed: withFlavors.filter(t => !t.is_confirmed),
   }
 }
 

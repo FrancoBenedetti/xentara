@@ -11,6 +11,7 @@ interface Tag {
   name: string
   description: string
   is_confirmed: boolean
+  language: string
 }
 
 interface Hub {
@@ -19,22 +20,18 @@ interface Hub {
   content_language?: string
 }
 
-// Common BCP-47 languages for the picker
+// Languages supported in the Taxonomy Studio (extend as needed)
 const LANGUAGES = [
   { code: 'en', label: 'English' },
   { code: 'af', label: 'Afrikaans' },
-  { code: 'fr', label: 'Français' },
-  { code: 'de', label: 'Deutsch' },
-  { code: 'es', label: 'Español' },
-  { code: 'pt', label: 'Português' },
-  { code: 'nl', label: 'Nederlands' },
-  { code: 'it', label: 'Italiano' },
-  { code: 'zh', label: '中文' },
-  { code: 'ar', label: 'العربية' },
-  { code: 'sw', label: 'Kiswahili' },
-  { code: 'xh', label: 'isiXhosa' },
-  { code: 'zu', label: 'isiZulu' },
 ]
+
+/** Normalize a BCP-47 content_language tag (e.g. 'en-GB') to a short code */
+function normalizeLanguage(lang?: string): string {
+  if (!lang || lang === 'original') return 'en'
+  if (lang.startsWith('af')) return 'af'
+  return 'en'
+}
 
 const PAGE_SIZE = 25
 
@@ -68,9 +65,11 @@ export default function TaxonomyStudio({
   const [isPending, startTransition] = useTransition()
 
   // ── Language state ─────────────────────────────────────────────────────────
-  // Default to hub's content_language, fall back to 'en'
-  const [viewLang, setViewLang] = useState(selectedHub?.content_language || 'en')
-  // Per-tag translation cache: tagId → { language → TagTranslation }
+  // Default to the hub's content_language (normalised to short code), fall back to 'en'
+  const [viewLang, setViewLang] = useState(() => normalizeLanguage(selectedHub?.content_language))
+  // Toggle: show cross-language flavors nested in expanded rows
+  const [showFlavors, setShowFlavors] = useState(true)
+  // Per-tag translation cache: tagId → TagTranslation[]
   const [translationCache, setTranslationCache] = useState<Record<string, TagTranslation[]>>({})
   const [loadingTranslations, setLoadingTranslations] = useState<Set<string>>(new Set())
   // Translation edit state
@@ -84,13 +83,19 @@ export default function TaxonomyStudio({
     [taxonomy]
   )
 
+  // Tags that belong to the currently selected language
+  const langTags = useMemo(
+    () => allTags.filter(t => (t.language || 'en') === viewLang),
+    [allTags, viewLang]
+  )
+
   const filteredTags = useMemo(() => {
     let base: Tag[] =
       activeTab === 'suggestions'
-        ? taxonomy.unconfirmed
+        ? langTags.filter(t => !t.is_confirmed)
         : activeTab === 'confirmed'
-        ? taxonomy.confirmed
-        : allTags
+        ? langTags.filter(t => t.is_confirmed)
+        : langTags
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -101,21 +106,31 @@ export default function TaxonomyStudio({
       )
     }
     return base
-  }, [allTags, taxonomy, activeTab, search])
+  }, [langTags, activeTab, search])
 
   const totalPages = Math.ceil(filteredTags.length / PAGE_SIZE)
   const pagedTags = filteredTags.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const mergeOptions = useMemo(() => {
     const q = mergeSearch.toLowerCase()
-    return taxonomy.confirmed
-      .filter(t => t.id !== mergingId && t.name.toLowerCase().includes(q))
+    return langTags
+      .filter(t => t.is_confirmed && t.id !== mergingId && t.name.toLowerCase().includes(q))
       .slice(0, 8)
-  }, [taxonomy.confirmed, mergeSearch, mergingId])
+  }, [langTags, mergeSearch, mergingId])
 
   // Reset to page 0 when filters change
   const setTab = (t: TabId) => { setActiveTab(t); setPage(0) }
   const setQuery = (q: string) => { setSearch(q); setPage(0) }
+
+  /** Switch language: reset pagination/search/expanded state */
+  const handleLangChange = (code: string) => {
+    setViewLang(code)
+    setPage(0)
+    setSearch('')
+    setActiveTab('all')
+    setExpandedId(null)
+    setSelectedIds(new Set())
+  }
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -136,13 +151,7 @@ export default function TaxonomyStudio({
     setLoadingTranslations(prev => { const s = new Set(prev); s.delete(tagId); return s })
   }, [translationCache, loadingTranslations])
 
-  /** Get the display name/description for a tag in the current viewLang */
-  const getDisplayed = useCallback((tag: Tag) => {
-    const cached = translationCache[tag.id]
-    const match = cached?.find(t => t.language === viewLang)
-    if (match) return { name: match.name, description: match.description || tag.description, isTranslated: true }
-    return { name: tag.name, description: tag.description, isTranslated: false }
-  }, [translationCache, viewLang])
+
 
   const handleSaveTranslation = useCallback(async (tagId: string) => {
     await upsertTagTranslation(tagId, editingTranslation!.lang, translationEdit.name, translationEdit.description)
@@ -239,16 +248,17 @@ export default function TaxonomyStudio({
     e.preventDefault()
     if (!newTag.name.trim()) return
     startTransition(async () => {
-      await addHubTag(selectedHubId, newTag.name.trim(), newTag.description.trim())
-      setNewTag({ name: '', description: '' })
-      setShowAdd(false)
-      // Optimistic add to confirmed list
+      // Tag is created in the currently selected language
+      const result = await addHubTag(selectedHubId, newTag.name.trim(), newTag.description.trim(), viewLang)
       const optimistic: Tag = {
-        id: crypto.randomUUID(),
+        id: (result as any)?.id || crypto.randomUUID(),
         name: newTag.name.trim(),
         description: newTag.description.trim(),
         is_confirmed: true,
+        language: viewLang,
       }
+      setNewTag({ name: '', description: '' })
+      setShowAdd(false)
       setTaxonomy(prev => ({
         ...prev,
         confirmed: [...prev.confirmed, optimistic].sort((a, b) => a.name.localeCompare(b.name)),
@@ -338,9 +348,9 @@ export default function TaxonomyStudio({
   }
 
   const tabCounts: Record<TabId, number> = {
-    all: allTags.length,
-    suggestions: taxonomy.unconfirmed.length,
-    confirmed: taxonomy.confirmed.length,
+    all: langTags.length,
+    suggestions: langTags.filter(t => !t.is_confirmed).length,
+    confirmed: langTags.filter(t => t.is_confirmed).length,
   }
 
   // ── Row renderer ───────────────────────────────────────────────────────────
@@ -400,17 +410,9 @@ export default function TaxonomyStudio({
             onClick={() => setExpandedId(isExpanded ? null : tag.id)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', flex: 1, padding: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}
           >
-            {(() => {
-              const { name: displayName, isTranslated } = getDisplayed(tag)
-              return (
-                <span style={{ fontWeight: 900, fontSize: '0.84rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  #{displayName.toUpperCase()}
-                  {isTranslated && (
-                    <span title={`Translated (${viewLang})`} style={{ fontSize: '0.65rem', color: 'var(--indigo)', flexShrink: 0 }}>🌐</span>
-                  )}
-                </span>
-              )
-            })()}
+            <span style={{ fontWeight: 900, fontSize: '0.84rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              #{tag.name.toUpperCase()}
+            </span>
             {!tag.is_confirmed && (
               <span style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.58rem', fontWeight: 900, padding: '0.1rem 0.45rem', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.4)', flexShrink: 0 }}>
                 AI DRAFT
@@ -449,49 +451,54 @@ export default function TaxonomyStudio({
 
         {/* Accordion: description + translations */}
         {isExpanded && (() => {
-          const { description: displayDesc, isTranslated } = getDisplayed(tag)
           const cached = translationCache[tag.id] || []
           const isLoadingT = loadingTranslations.has(tag.id)
           const editingThisTag = editingTranslation?.tagId === tag.id
+          // Flavors = translations stored for languages OTHER than viewLang
+          const otherFlavors = cached.filter(t => t.language !== viewLang)
 
           return (
             <div style={{ borderTop: '1px solid var(--border)' }}>
-              {/* Description in current lang */}
+              {/* Description in current language */}
               <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
-                <p style={{ fontSize: '0.74rem', color: isTranslated ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 600, lineHeight: 1.55, margin: 0, flex: 1 }}>
-                  {displayDesc || <em>No description.</em>}
-                </p>
-                {/* Add/edit translation for current lang */}
-                {viewLang !== 'en' && (
-                  <button
-                    style={{ ...btn('ghost'), fontSize: '0.6rem', flexShrink: 0 }}
-                    onClick={() => {
-                      const existing = cached.find(t => t.language === viewLang)
-                      setEditingTranslation({ tagId: tag.id, lang: viewLang })
-                      setTranslationEdit({ name: existing?.name || tag.name, description: existing?.description || tag.description || '' })
-                    }}
-                  >
-                    {cached.find(t => t.language === viewLang) ? '✎ EDIT TRANSLATION' : '+ ADD TRANSLATION'}
-                  </button>
-                )}
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.07em', marginBottom: '0.3rem' }}>
+                    {LANGUAGES.find(l => l.code === viewLang)?.label.toUpperCase() || viewLang.toUpperCase()}
+                  </p>
+                  <p style={{ fontSize: '0.74rem', color: 'var(--text-main)', fontWeight: 600, lineHeight: 1.55, margin: 0 }}>
+                    {tag.description || <em>No description.</em>}
+                  </p>
+                </div>
+                {/* Button to add/edit translation in another language */}
+                <button
+                  style={{ ...btn('ghost'), fontSize: '0.6rem', flexShrink: 0 }}
+                  onClick={() => {
+                    const targetLang = viewLang === 'en' ? 'af' : 'en'
+                    const existing = cached.find(t => t.language === targetLang)
+                    setEditingTranslation({ tagId: tag.id, lang: targetLang })
+                    setTranslationEdit({ name: existing?.name || tag.name, description: existing?.description || tag.description || '' })
+                  }}
+                >
+                  {viewLang === 'en' ? '+ AF FLAVOR' : '+ EN FLAVOR'}
+                </button>
               </div>
 
               {/* Inline translation editor */}
-              {editingThisTag && editingTranslation?.lang === viewLang && (
+              {editingThisTag && editingTranslation && (
                 <div style={{ padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.06)', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--indigo)', letterSpacing: '0.08em' }}>
-                    TRANSLATION — {LANGUAGES.find(l => l.code === viewLang)?.label || viewLang}
+                    ✎ {LANGUAGES.find(l => l.code === editingTranslation.lang)?.label.toUpperCase() || editingTranslation.lang.toUpperCase()} FLAVOR
                   </span>
                   <input
                     value={translationEdit.name}
                     onChange={e => setTranslationEdit(v => ({ ...v, name: e.target.value }))}
-                    placeholder="Translated name…"
+                    placeholder="Name in this language…"
                     style={{ ...inputStyle, fontWeight: 800 }}
                   />
                   <textarea
                     value={translationEdit.description}
                     onChange={e => setTranslationEdit(v => ({ ...v, description: e.target.value }))}
-                    placeholder="Translated description (optional)…"
+                    placeholder="Description (optional)…"
                     rows={2}
                     style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
                   />
@@ -502,18 +509,21 @@ export default function TaxonomyStudio({
                 </div>
               )}
 
-              {/* Other languages section */}
+              {/* Cross-language flavors — only shown when showFlavors is enabled */}
               {isLoadingT && (
-                <p style={{ padding: '0.5rem 1rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>Loading translations…</p>
+                <p style={{ padding: '0.5rem 1rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>Loading flavors…</p>
               )}
-              {!isLoadingT && cached.filter(t => t.language !== viewLang).length > 0 && (
+              {!isLoadingT && showFlavors && otherFlavors.length > 0 && (
                 <div style={{ borderTop: '1px solid var(--border)', padding: '0.5rem 1rem 0.75rem' }}>
-                  <p style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>OTHER LANGUAGES</p>
+                  <p style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
+                    🌐 CROSS-LANGUAGE FLAVORS
+                  </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {cached.filter(t => t.language !== viewLang).map(t => (
-                      <div key={t.language} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-input)', borderRadius: '0.4rem', padding: '0.35rem 0.6rem' }}>
-                        <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--indigo)', minWidth: '2.5rem' }}>{t.language.toUpperCase()}</span>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-main)', flex: 1 }}>{t.name}</span>
+                    {otherFlavors.map(t => (
+                      <div key={t.language} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '0.4rem', padding: '0.35rem 0.6rem' }}>
+                        <span style={{ fontSize: '0.58rem', fontWeight: 900, color: 'var(--indigo)', minWidth: '2.2rem', textTransform: 'uppercase' }}>{t.language}</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-main)', flex: 1 }}>#{t.name.toUpperCase()}</span>
+                        {t.description && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic', flex: 1 }}>{t.description}</span>}
                         <button
                           style={{ ...btn('ghost'), fontSize: '0.6rem' }}
                           onClick={() => { setEditingTranslation({ tagId: tag.id, lang: t.language }); setTranslationEdit({ name: t.name, description: t.description || '' }) }}
@@ -526,6 +536,11 @@ export default function TaxonomyStudio({
                     ))}
                   </div>
                 </div>
+              )}
+              {!isLoadingT && showFlavors && otherFlavors.length === 0 && !editingThisTag && (
+                <p style={{ padding: '0.4rem 1rem 0.75rem', fontSize: '0.63rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  No {viewLang === 'en' ? 'Afrikaans' : 'English'} flavor yet.
+                </p>
               )}
             </div>
           )
@@ -602,33 +617,58 @@ export default function TaxonomyStudio({
               <option key={hub.id} value={hub.id}>{hub.name}</option>
             ))}
           </select>
-          {/* Language selector */}
-          <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+
+          {/* Language selector tabs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.58rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.07em', marginRight: '0.2rem' }}>VIEW LANGUAGE:</span>
             {LANGUAGES.map(lang => (
               <button
                 key={lang.code}
-                onClick={() => setViewLang(lang.code)}
-                title={lang.label}
+                onClick={() => handleLangChange(lang.code)}
+                title={`Show ${lang.label} taxonomy items`}
                 style={{
-                  padding: '0.2rem 0.55rem',
-                  fontSize: '0.6rem',
+                  padding: '0.25rem 0.7rem',
+                  fontSize: '0.63rem',
                   fontWeight: 900,
                   borderRadius: '2rem',
                   cursor: 'pointer',
                   border: `1px solid ${viewLang === lang.code ? 'var(--indigo)' : 'var(--border)'}`,
                   background: viewLang === lang.code ? 'var(--indigo)' : 'var(--bg-input)',
                   color: viewLang === lang.code ? '#fff' : 'var(--text-muted)',
+                  transition: 'all 0.15s',
                 }}
               >
-                {lang.code.toUpperCase()}
+                {lang.label}
               </button>
             ))}
           </div>
-          {viewLang !== 'en' && (
-            <p style={{ fontSize: '0.6rem', color: 'var(--indigo)', fontWeight: 700, margin: 0 }}>
-              🌐 Viewing in {LANGUAGES.find(l => l.code === viewLang)?.label || viewLang} · 🌐 = translated
-            </p>
-          )}
+
+          {/* Show/hide cross-language flavors toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.58rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.07em' }}>SHOW FLAVORS:</span>
+            <button
+              onClick={() => setShowFlavors(v => !v)}
+              title={showFlavors ? 'Hide cross-language flavors' : 'Show cross-language flavors'}
+              style={{
+                padding: '0.22rem 0.6rem',
+                fontSize: '0.6rem',
+                fontWeight: 900,
+                borderRadius: '2rem',
+                cursor: 'pointer',
+                border: `1px solid ${showFlavors ? 'var(--indigo)' : 'var(--border)'}`,
+                background: showFlavors ? 'rgba(99,102,241,0.15)' : 'var(--bg-input)',
+                color: showFlavors ? 'var(--indigo)' : 'var(--text-muted)',
+                transition: 'all 0.15s',
+              }}
+            >
+              {showFlavors ? '🌐 ON' : '🌐 OFF'}
+            </button>
+          </div>
+
+          <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, margin: 0, textAlign: 'right' }}>
+            Showing <strong style={{ color: 'var(--indigo)' }}>{LANGUAGES.find(l => l.code === viewLang)?.label}</strong> items
+            {showFlavors ? ' · flavors visible when expanded' : ''}
+          </p>
         </div>
       </header>
 

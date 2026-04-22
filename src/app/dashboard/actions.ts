@@ -40,6 +40,7 @@ export interface HubTag {
   name: string;
   description: string;
   is_confirmed: boolean;
+  language: string; // BCP-47 short code, e.g. 'en', 'af'
 }
 
 export interface MonitoredSource {
@@ -585,17 +586,19 @@ export async function removeHubTag(id: string) {
   revalidatePath('/dashboard', 'layout')
 }
 
-export async function addHubTag(hubId: string, name: string, description: string) {
+export async function addHubTag(hubId: string, name: string, description: string, language: string = 'en') {
   const supabase = await createClient()
-  const { error } = await supabase.from('hub_tags' as never).insert({
+  const { data, error } = await (supabase.from('hub_tags' as never) as any).insert({
     hub_id: hubId,
     name,
     description,
-    is_confirmed: true
-  } as never)
+    is_confirmed: true,
+    language,
+  } as never).select('id').single()
 
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard', 'layout')
+  return data as { id: string } | null
 }
 
 export async function reprocessPublication(id: string, url: string) {
