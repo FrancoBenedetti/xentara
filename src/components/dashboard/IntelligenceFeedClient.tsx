@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Publication, purgePublications, getRecentPublications } from '@/app/dashboard/actions'
+import { Publication, HubPromotion, purgePublications, getRecentPublications } from '@/app/dashboard/actions'
 import PublicationCard from './PublicationCard'
+import PromotionCard from './PromotionCard'
 import styles from '@/app/dashboard/dashboard.module.css'
 
 interface IntelligenceFeedClientProps {
@@ -10,17 +11,20 @@ interface IntelligenceFeedClientProps {
   hubId: string
   sourceId?: string
   hubRole?: string
+  promotions?: HubPromotion[]
 }
 
 export default function IntelligenceFeedClient({ 
   initialPublications,
   hubId,
   sourceId,
-  hubRole
+  hubRole,
+  promotions = []
 }: IntelligenceFeedClientProps) {
   const [publications, setPublications] = useState<Publication[]>(initialPublications)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isPurging, setIsPurging] = useState(false)
+  const [suppressedPromoIds, setSuppressedPromoIds] = useState<Set<string>>(new Set())
   
   // Pagination State
   const [page, setPage] = useState(0)
@@ -98,6 +102,46 @@ export default function IntelligenceFeedClient({
     }
   }
 
+  // Build the interleaved list of publication + promotion nodes
+  const renderFeedItems = () => {
+    const items: React.ReactNode[] = []
+    const activePromos = promotions.filter(p => !suppressedPromoIds.has(p.id))
+
+    publications.forEach((pub: Publication, index: number) => {
+      const isLast = index === publications.length - 1
+      items.push(
+        <div key={pub.id} ref={isLast ? lastElementRef : null}>
+          <PublicationCard
+            pub={pub}
+            selectable={!pub.is_published}
+            isSelected={selectedIds.includes(pub.id)}
+            onSelect={() => toggleSelection(pub.id)}
+            hubRole={hubRole}
+          />
+        </div>
+      )
+
+      // After each publication, check if any promotion should be injected here.
+      // Use frequency_hours as "inject every N items", staggered by promo index
+      // so multiple promos don't all appear at the same position.
+      activePromos.forEach((promo, promoIdx) => {
+        const interval = Math.max(1, promo.frequency_hours)
+        const offset = promoIdx * Math.ceil(interval / 2) // stagger
+        if ((index + 1 + offset) % interval === 0) {
+          items.push(
+            <PromotionCard
+              key={`promo-${promo.id}-at-${index}`}
+              promotion={promo}
+              onSuppress={(id) => setSuppressedPromoIds(prev => new Set(prev).add(id))}
+            />
+          )
+        }
+      })
+    })
+
+    return items
+  }
+
   return (
     <div className={styles.feedContainer}>
       <div className={styles.feedHeader}>
@@ -155,23 +199,7 @@ export default function IntelligenceFeedClient({
         </div>
       ) : (
         <div className={styles.feedScrollArea}>
-          {publications.map((pub: Publication, index: number) => {
-            const isLast = index === publications.length - 1
-            return (
-              <div 
-                key={pub.id} 
-                ref={isLast ? lastElementRef : null}
-              >
-                <PublicationCard 
-                    pub={pub} 
-                    selectable={!pub.is_published}
-                    isSelected={selectedIds.includes(pub.id)}
-                    onSelect={() => toggleSelection(pub.id)}
-                    hubRole={hubRole}
-                />
-              </div>
-            )
-          })}
+          {renderFeedItems()}
           {isLoadingMore && (
             <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 800 }}>
               LOADING MORE ARCHIVES...

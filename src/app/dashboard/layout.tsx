@@ -1,6 +1,6 @@
 import styles from './dashboard.module.css';
 import DashboardNav from '@/components/dashboard/DashboardNav';
-import { getHubs } from './actions';
+import { getHubs, getUserProfile } from './actions';
 import HelpSystem from '@/components/dashboard/HelpSystem';
 
 export default async function DashboardLayout({
@@ -8,11 +8,12 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const hubs = await getHubs();
+  const [hubs, profile] = await Promise.all([getHubs(), getUserProfile()]);
+  const isStaff = profile?.is_staff === true;
 
   return (
     <div className={styles.dashboardLayout}>
-      <DashboardNav hubs={hubs} />
+      <DashboardNav hubs={hubs} isStaff={isStaff} />
       
       <main className={styles.mainContent}>
         {children}

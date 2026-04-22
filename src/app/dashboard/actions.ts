@@ -971,3 +971,98 @@ export async function purgePublications(ids: string[]) {
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
 }
+
+// ── Platform Promotions (Xentara staff-managed) ────────────────────────────
+
+export interface PlatformPromotion {
+  id: string
+  type: 'signup_cta' | 'announcement' | 'campaign'
+  title: string
+  body?: string
+  links?: { label: string; url: string }[]
+  frequency_hours: number
+  is_active: boolean
+  guests_only: boolean
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+/** Get the current user's profile including is_staff flag */
+export async function getUserProfile(): Promise<{ is_staff: boolean } | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await (supabase
+    .from('profiles' as never) as any)
+    .select('is_staff')
+    .eq('id', user.id)
+    .single()
+  return data ? { is_staff: (data as any).is_staff === true } : { is_staff: false }
+}
+
+/** Fetch all platform promotions (staff: all; others: active only) */
+export async function getPlatformPromotions(): Promise<PlatformPromotion[]> {
+  const supabase = await createClient()
+  const { data } = await (supabase
+    .from('platform_promotions' as never) as any)
+    .select('*')
+    .order('created_at', { ascending: false })
+  return (data as PlatformPromotion[]) || []
+}
+
+/** Fetch only active platform promotions for injection into public feeds */
+export async function getActivePlatformPromotions(): Promise<PlatformPromotion[]> {
+  const supabase = await createClient()
+  const { data } = await (supabase
+    .from('platform_promotions' as never) as any)
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+  return (data as PlatformPromotion[]) || []
+}
+
+export async function createPlatformPromotion(
+  payload: Omit<PlatformPromotion, 'id' | 'created_at' | 'updated_at' | 'created_by'>
+): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const { error } = await (supabase
+    .from('platform_promotions' as never) as any)
+    .insert({ ...payload, created_by: user?.id })
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/admin/platform-promotions')
+}
+
+export async function updatePlatformPromotion(
+  id: string,
+  payload: Partial<Omit<PlatformPromotion, 'id' | 'created_at' | 'created_by'>>
+): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await (supabase
+    .from('platform_promotions' as never) as any)
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/admin/platform-promotions')
+}
+
+export async function togglePlatformPromotion(id: string, is_active: boolean): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await (supabase
+    .from('platform_promotions' as never) as any)
+    .update({ is_active, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/admin/platform-promotions')
+}
+
+export async function deletePlatformPromotion(id: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await (supabase
+    .from('platform_promotions' as never) as any)
+    .delete()
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/admin/platform-promotions')
+}

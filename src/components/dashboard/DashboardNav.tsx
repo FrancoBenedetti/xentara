@@ -9,6 +9,7 @@ import { createClient } from '@/utils/supabase/client';
 
 interface DashboardNavProps {
   hubs: Hub[];
+  isStaff?: boolean;
 }
 
 interface NavItemProps {
@@ -84,7 +85,7 @@ const MobileNavItem = ({ href, icon, label, disabled }: NavItemProps) => {
   );
 };
 
-export default function DashboardNav({ hubs }: DashboardNavProps) {
+export default function DashboardNav({ hubs, isStaff }: DashboardNavProps) {
   const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
@@ -162,6 +163,35 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
             })}
           </ul>
         </div>
+
+        {/* Staff admin section */}
+        {isStaff && (
+          <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: '0.6rem', fontWeight: 900, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              🔒 Staff Admin
+            </h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              <li>
+                <Link
+                  href="/dashboard/admin/platform-promotions"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    color: pathname === '/dashboard/admin/platform-promotions' ? '#6366f1' : 'var(--text-muted)',
+                    textDecoration: 'none',
+                    padding: '0.3rem 0',
+                    transition: 'color 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: '0.7rem' }}>✨</span> Platform Promotions
+                </Link>
+              </li>
+            </ul>
+          </div>
+        )}
 
         <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
            <button 
