@@ -575,7 +575,7 @@ export async function reprocessPublication(id: string, url: string) {
   revalidatePath('/dashboard')
 }
 
-export async function getPublicationTags(publicationId: string): Promise<{ id: string; name: string; tag_id: string; is_suppressed: boolean }[]> {
+export async function getPublicationTags(publicationId: string): Promise<{ id: string; name: string; tag_id: string; is_suppressed: boolean; description?: string }[]> {
   const supabase = await createClient()
   
   // 1. Fetch publication to get its raw tags
@@ -587,14 +587,14 @@ export async function getPublicationTags(publicationId: string): Promise<{ id: s
 
   if (!pub) return []
 
-  // 2. Fetch existing links
+  // 2. Fetch existing links — include description so inline edit (R2) can preserve it
   const { data: existingLinks } = await supabase
     .from('publication_hub_tags' as never)
     .select(`
       id,
       is_suppressed,
       tag_id,
-      hub_tags!inner(name)
+      hub_tags!inner(name, description)
     `)
     .eq('publication_id', publicationId)
 
@@ -603,6 +603,7 @@ export async function getPublicationTags(publicationId: string): Promise<{ id: s
     id: d.id,
     tag_id: d.tag_id,
     name: d.hub_tags.name,
+    description: d.hub_tags.description as string | undefined,
     is_suppressed: d.is_suppressed
   }))
 
@@ -610,7 +611,7 @@ export async function getPublicationTags(publicationId: string): Promise<{ id: s
   if (pub.tags && pub.tags.length > 0) {
     const { data: matchingHubTags } = await supabase
       .from('hub_tags')
-      .select('id, name')
+      .select('id, name, description')
       .eq('hub_id', pub.hub_id)
       .eq('is_confirmed', true)
       .in('name', pub.tags)
@@ -637,6 +638,7 @@ export async function getPublicationTags(publicationId: string): Promise<{ id: s
               id: nl.id,
               tag_id: nl.tag_id,
               name: ht?.name || 'Unknown',
+              description: ht?.description as string | undefined,
               is_suppressed: nl.is_suppressed
             })
           })
@@ -646,6 +648,44 @@ export async function getPublicationTags(publicationId: string): Promise<{ id: s
   }
     
   return results
+}
+
+/** Search confirmed hub flavors by name for the Add-Flavor combobox (R3) */
+export async function searchConfirmedTags(
+  hubId: string,
+  query: string,
+  excludeTagIds: string[]
+): Promise<{ id: string; name: string; description: string }[]> {
+  const supabase = await createClient()
+  const { data } = await (supabase
+    .from('hub_tags' as never) as any)
+    .select('id, name, description')
+    .eq('hub_id', hubId)
+    .eq('is_confirmed', true)
+    .ilike('name', `%${query}%`)
+    .order('name', { ascending: true })
+    .limit(20)
+
+  return ((data as any[]) || [])
+    .filter((t: any) => !excludeTagIds.includes(t.id))
+    .slice(0, 8)
+}
+
+/** Attach an existing confirmed hub flavor to a publication (R3) */
+export async function addPublicationTag(
+  publicationId: string,
+  tagId: string
+): Promise<void> {
+  const supabase = await createClient()
+  // Upsert to handle any race-condition duplicates gracefully
+  const { error } = await supabase
+    .from('publication_hub_tags' as never)
+    .upsert(
+      { publication_id: publicationId, tag_id: tagId, is_suppressed: false } as never,
+      { onConflict: 'publication_id,tag_id', ignoreDuplicates: false }
+    )
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
 }
 
 export async function setPublicationTagSuppression(linkIds: string[], is_suppressed: boolean) {
@@ -758,6 +798,113 @@ export async function previewRSSHubRouteAction(routePath: string) {
   if (!res.ok) throw new Error("Could not load preview")
   return await res.json()
 }
+
+/**
+ * CURATOR PROMOTIONS
+ */
+
+export interface HubPromotion {
+  id: string
+  hub_id: string
+  created_by: string
+  type: 'announcement' | 'promotion' | 'commercial' | 'campaign'
+  title: string
+  body?: string
+  links?: { label: string; url: string }[]
+  campaign_code?: string
+  start_date?: string
+  end_date?: string
+  frequency_hours: number
+  is_active: boolean
+  allow_suppress: boolean
+  created_at: string
+  updated_at: string
+}
+
+export async function getHubPromotions(hubId: string): Promise<HubPromotion[]> {
+  const supabase = await createClient()
+  const { data, error } = await (supabase.from('hub_promotions' as never) as any)
+    .select('*')
+    .eq('hub_id', hubId)
+    .order('created_at', { ascending: false })
+  if (error) { console.error(error); return [] }
+  return data || []
+}
+
+export async function createHubPromotion(hubId: string, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const linksRaw = formData.get('links') as string
+  let links: { label: string; url: string }[] = []
+  try { links = JSON.parse(linksRaw || '[]') } catch { links = [] }
+
+  const start_date = formData.get('start_date') as string
+  const end_date = formData.get('end_date') as string
+
+  const { error } = await (supabase.from('hub_promotions' as never) as any).insert({
+    hub_id: hubId,
+    created_by: user.id,
+    type: formData.get('type') as string,
+    title: formData.get('title') as string,
+    body: formData.get('body') as string || null,
+    links,
+    campaign_code: formData.get('campaign_code') as string || null,
+    start_date: start_date || null,
+    end_date: end_date || null,
+    frequency_hours: parseInt(formData.get('frequency_hours') as string) || 24,
+    is_active: true,
+    allow_suppress: formData.get('allow_suppress') === 'true',
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function updateHubPromotion(id: string, formData: FormData) {
+  const supabase = await createClient()
+  const linksRaw = formData.get('links') as string
+  let links: { label: string; url: string }[] = []
+  try { links = JSON.parse(linksRaw || '[]') } catch { links = [] }
+
+  const start_date = formData.get('start_date') as string
+  const end_date = formData.get('end_date') as string
+
+  const { error } = await (supabase.from('hub_promotions' as never) as any)
+    .update({
+      type: formData.get('type') as string,
+      title: formData.get('title') as string,
+      body: formData.get('body') as string || null,
+      links,
+      campaign_code: formData.get('campaign_code') as string || null,
+      start_date: start_date || null,
+      end_date: end_date || null,
+      frequency_hours: parseInt(formData.get('frequency_hours') as string) || 24,
+      allow_suppress: formData.get('allow_suppress') === 'true',
+    })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function toggleHubPromotion(id: string, is_active: boolean) {
+  const supabase = await createClient()
+  const { error } = await (supabase.from('hub_promotions' as never) as any)
+    .update({ is_active })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function deleteHubPromotion(id: string) {
+  const supabase = await createClient()
+  const { error } = await (supabase.from('hub_promotions' as never) as any)
+    .delete()
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
 export async function purgePublications(ids: string[]) {
   const supabase = await createClient()
   const { error } = await supabase

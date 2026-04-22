@@ -1,4 +1,4 @@
-import { getHubs, getHubSubscriberCount, Hub } from '../actions'
+import { getHubs, getHubSubscriberCount, Hub, getHubPromotions } from '../actions'
 import { getHubChannels, getDistributionLogs } from '../hubs/settings-actions'
 import HubSettingsTabs from '@/components/dashboard/HubSettingsTabs'
 
@@ -12,7 +12,8 @@ export default async function SettingsPage() {
       const subscriberCount = await getHubSubscriberCount(hub.id)
       const channels = await getHubChannels(hub.id)
       const logs = await getDistributionLogs(hub.id)
-      return { ...hub, subscriberCount, channels, logs }
+      const promotions = await getHubPromotions(hub.id)
+      return { ...hub, subscriberCount, channels, logs, promotions }
     })
   )
 
@@ -48,6 +49,7 @@ export default async function SettingsPage() {
                  hub={data as any} 
                  channels={data.channels} 
                  logs={data.logs} 
+                 promotions={data.promotions}
                />
             </div>
           ))

@@ -5,24 +5,28 @@ import BrandingForm from './BrandingForm'
 import TaxonomyManager from './TaxonomyManager'
 import TeamManager from './TeamManager'
 import DistributionSettings from './DistributionSettings'
+import PromotionsManager from './PromotionsManager'
 import { Hub } from '@/app/dashboard/actions'
 
-type Tab = 'branding' | 'taxonomy' | 'team' | 'distribution'
+type Tab = 'branding' | 'taxonomy' | 'promotions' | 'team' | 'distribution'
 
 export default function HubSettingsTabs({ 
   hub, 
   channels, 
-  logs 
+  logs,
+  promotions
 }: { 
   hub: Hub & { subscriberCount: number, role?: string }, 
   channels: any[], 
-  logs: any[] 
+  logs: any[],
+  promotions: any[]
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('branding')
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'branding', label: 'Branding', icon: '🎨' },
     { id: 'taxonomy', label: 'Intel Flavors', icon: '🧬' },
+    { id: 'promotions', label: 'Promotions', icon: '📢' },
     { id: 'team', label: 'Team', icon: '👥' },
     { id: 'distribution', label: 'Distribution', icon: '✈️' },
   ]
@@ -67,6 +71,7 @@ export default function HubSettingsTabs({
       <div className="tab-content" style={{ animation: 'fadeIn 0.3s ease' }}>
         {activeTab === 'branding' && <BrandingForm hub={hub} />}
         {activeTab === 'taxonomy' && <TaxonomyManager hubId={hub.id} initialStrictness={hub.strictness || 'exploratory'} />}
+        {activeTab === 'promotions' && <PromotionsManager hubId={hub.id} initialPromotions={promotions} />}
         {activeTab === 'team' && <TeamManager hubId={hub.id} userRole={hub.role || 'viewer'} />}
         {activeTab === 'distribution' && <DistributionSettings hubId={hub.id} initialChannels={channels} logs={logs} />}
       </div>

@@ -107,7 +107,7 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
           <ul style={{ listStyle: 'none', padding: 0 }}>
             <DesktopNavItem href="/dashboard" icon="⬢" label="Hubs" />
             <DesktopNavItem href="/dashboard/taxonomy" icon="✦" label="Taxonomy" />
-            <DesktopNavItem href="/dashboard/history" icon="◷" label="History" />
+            <DesktopNavItem href="/dashboard/history" icon="◷" label="Publications" />
             <DesktopNavItem href="/dashboard/boards" icon="⬡" label="Boards (Locked)" disabled />
             <DesktopNavItem href="/dashboard/settings" icon="⚙" label="Settings" />
           </ul>

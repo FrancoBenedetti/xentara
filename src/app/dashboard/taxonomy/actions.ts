@@ -86,6 +86,15 @@ export async function bulkDeleteTags(tagIds: string[]) {
 export async function mergeTags(sourceTagId: string, targetTagId: string) {
   const supabase = await createClient()
 
+  // 0. Fetch both tag descriptions so we can combine them if they differ (R6)
+  const { data: bothTags } = await supabase
+    .from('hub_tags')
+    .select('id, name, description')
+    .in('id', [sourceTagId, targetTagId])
+
+  const sourceTag = bothTags?.find(t => t.id === sourceTagId)
+  const targetTag = bothTags?.find(t => t.id === targetTagId)
+
   // 1. Find publications that have both tags to avoid PK violations on update
   const { data: duplicates } = await supabase
     .from('publication_hub_tags')
@@ -112,7 +121,18 @@ export async function mergeTags(sourceTagId: string, targetTagId: string) {
     .update({ tag_id: targetTagId })
     .eq('tag_id', sourceTagId)
 
-  // 3. Delete the source tag
+  // 3. Combine descriptions if they differ (R6)
+  const srcDesc = sourceTag?.description?.trim() || ''
+  const tgtDesc = targetTag?.description?.trim() || ''
+  if (srcDesc && tgtDesc && srcDesc !== tgtDesc) {
+    const combinedDesc = `${tgtDesc}\n\n[Merged from "${sourceTag?.name}"] ${srcDesc}`
+    await supabase
+      .from('hub_tags')
+      .update({ description: combinedDesc })
+      .eq('id', targetTagId)
+  }
+
+  // 4. Delete the source tag
   const { error } = await supabase
     .from('hub_tags')
     .delete()

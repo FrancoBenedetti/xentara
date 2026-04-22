@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Publication, publishPublication, getPublicationTags, setPublicationTagSuppression } from '@/app/dashboard/actions'
+import { Publication, publishPublication, getPublicationTags, setPublicationTagSuppression, updateHubTag, searchConfirmedTags, addPublicationTag } from '@/app/dashboard/actions'
 
 const SimpleMarkdown = ({ children }: { children: string }) => {
   if (!children) return null;
@@ -79,11 +79,54 @@ export default function RepublishModal({ publication, onClose }: Props) {
     summary: publication.summary || '',
     curator_commentary: publication.curator_commentary || ''
   })
-  const [tags, setTags] = useState<{ id: string; name: string; tag_id: string; is_suppressed: boolean }[]>([])
+  type TagEntry = { id: string; name: string; tag_id: string; is_suppressed: boolean; description?: string }
+  const [tags, setTags] = useState<TagEntry[]>([])
 
   useEffect(() => {
     getPublicationTags(publication.id).then(setTags).catch(console.error)
   }, [publication.id])
+
+  // R2 – inline flavor label edit
+  const [editingTagId, setEditingTagId] = useState<string | null>(null)
+  const [editingTagName, setEditingTagName] = useState('')
+  const [savingTagEdit, setSavingTagEdit] = useState(false)
+
+  const handleTagLabelSave = async (tag: TagEntry) => {
+    const trimmed = editingTagName.trim()
+    if (!trimmed || trimmed === tag.name) { setEditingTagId(null); return }
+    setSavingTagEdit(true)
+    try {
+      await updateHubTag(tag.tag_id, trimmed, tag.description || '')
+      setTags(prev => prev.map(t => t.id === tag.id ? { ...t, name: trimmed } : t))
+      setEditingTagId(null)
+    } catch (e) { console.error(e) }
+    finally { setSavingTagEdit(false) }
+  }
+
+  // R3 – add-flavor combobox
+  const [showAddFlavor, setShowAddFlavor] = useState(false)
+  const [flavorQuery, setFlavorQuery] = useState('')
+  const [flavorResults, setFlavorResults] = useState<{ id: string; name: string; description: string }[]>([])
+  const [searchingFlavors, setSearchingFlavors] = useState(false)
+
+  const handleFlavorSearch = async (q: string) => {
+    setFlavorQuery(q)
+    if (!q.trim()) { setFlavorResults([]); return }
+    setSearchingFlavors(true)
+    try {
+      const excludeIds = tags.map(t => t.tag_id)
+      setFlavorResults(await searchConfirmedTags(publication.hub_id, q, excludeIds))
+    } catch (e) { console.error(e) }
+    finally { setSearchingFlavors(false) }
+  }
+
+  const handleAddFlavor = async (flavor: { id: string; name: string; description: string }) => {
+    try {
+      await addPublicationTag(publication.id, flavor.id)
+      setTags(prev => [...prev, { id: `opt-${flavor.id}`, tag_id: flavor.id, name: flavor.name, description: flavor.description, is_suppressed: false }])
+      setFlavorResults([]); setFlavorQuery(''); setShowAddFlavor(false)
+    } catch (e) { console.error(e); alert('Failed to add flavor') }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -157,46 +200,63 @@ export default function RepublishModal({ publication, onClose }: Props) {
           </div>
 
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Confirmed Hub Flavors (Toggle to exclude)
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Confirmed Hub Flavors
+              </label>
+              <button
+                type="button"
+                onClick={() => { setShowAddFlavor(v => !v); setFlavorQuery(''); setFlavorResults([]) }}
+                style={{ padding: '0.2rem 0.6rem', fontSize: '0.65rem', fontWeight: 900, borderRadius: '1rem', border: '1px solid var(--indigo)', background: showAddFlavor ? 'rgba(99,102,241,0.15)' : 'transparent', color: 'var(--indigo)', cursor: 'pointer' }}
+              >
+                {showAddFlavor ? '✕ CANCEL' : '+ ADD FLAVOR'}
+              </button>
+            </div>
+
             {tags.length > 0 ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
                 {tags.map(tag => (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={async () => {
-                      const newSuppressed = !tag.is_suppressed;
-                      setTags(tags.map(t => t.id === tag.id ? { ...t, is_suppressed: newSuppressed } : t));
-                      await setPublicationTagSuppression([tag.id], newSuppressed);
-                    }}
-                    style={{
-                      padding: '0.4rem 0.9rem',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      borderRadius: '2rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      border: `1px solid ${tag.is_suppressed ? 'var(--border)' : 'var(--indigo)'}`,
-                      background: tag.is_suppressed ? 'rgba(255, 255, 255, 0.03)' : 'rgba(99, 102, 241, 0.1)',
-                      color: tag.is_suppressed ? 'var(--text-muted)' : 'var(--indigo)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      opacity: tag.is_suppressed ? 0.6 : 1
-                    }}
-                  >
-                    <span style={{ 
-                      width: '8px', 
-                      height: '8px', 
-                      borderRadius: '50%', 
-                      background: tag.is_suppressed ? 'var(--text-muted)' : 'var(--indigo)',
-                      boxShadow: tag.is_suppressed ? 'none' : '0 0 8px var(--indigo)'
-                    }}></span>
-                    {tag.name.toUpperCase()}
-                    {tag.is_suppressed && <span style={{ fontSize: '0.6rem', fontWeight: 900 }}>(EXCLUDED)</span>}
-                  </button>
+                  <div key={tag.id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    {editingTagId === tag.id ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', border: '1px solid var(--indigo)', borderRadius: '2rem', padding: '0.25rem 0.6rem', background: 'rgba(99,102,241,0.08)' }}>
+                        <input
+                          autoFocus
+                          value={editingTagName}
+                          onChange={e => setEditingTagName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleTagLabelSave(tag); if (e.key === 'Escape') setEditingTagId(null) }}
+                          style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--indigo)', fontWeight: 800, fontSize: '0.75rem', width: `${Math.max(editingTagName.length, 4)}ch` }}
+                        />
+                        <button type="button" onClick={() => handleTagLabelSave(tag)} disabled={savingTagEdit} style={{ background: 'none', border: 'none', color: 'var(--indigo)', cursor: 'pointer', fontWeight: 900, fontSize: '0.7rem', padding: 0 }}>✓</button>
+                        <button type="button" onClick={() => setEditingTagId(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem', padding: 0 }}>✕</button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newSuppressed = !tag.is_suppressed
+                          setTags(tags.map(t => t.id === tag.id ? { ...t, is_suppressed: newSuppressed } : t))
+                          await setPublicationTagSuppression([tag.id], newSuppressed)
+                        }}
+                        style={{ padding: '0.4rem 0.9rem', fontSize: '0.75rem', fontWeight: 800, borderRadius: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: `1px solid ${tag.is_suppressed ? 'var(--border)' : 'var(--indigo)'}`, background: tag.is_suppressed ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.1)', color: tag.is_suppressed ? 'var(--text-muted)' : 'var(--indigo)', cursor: 'pointer', transition: 'all 0.2s', opacity: tag.is_suppressed ? 0.6 : 1 }}
+                      >
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: tag.is_suppressed ? 'var(--text-muted)' : 'var(--indigo)', boxShadow: tag.is_suppressed ? 'none' : '0 0 8px var(--indigo)' }}></span>
+                        {tag.name.toUpperCase()}
+                        {tag.is_suppressed && <span style={{ fontSize: '0.6rem', fontWeight: 900 }}>(EXCLUDED)</span>}
+                      </button>
+                    )}
+                    {editingTagId !== tag.id && (
+                      <button
+                        type="button"
+                        title="Edit label"
+                        onClick={() => { setEditingTagId(tag.id); setEditingTagName(tag.name) }}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.2rem', lineHeight: 1, opacity: 0.6, transition: 'opacity 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
+                      >
+                        ✎
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             ) : (
@@ -204,6 +264,40 @@ export default function RepublishModal({ publication, onClose }: Props) {
                 <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
                   No confirmed hub flavors linked to this item. {publication.tags?.length > 0 ? `(Raw keywords: ${publication.tags.join(', ')})` : ''}
                 </p>
+              </div>
+            )}
+
+            {showAddFlavor && (
+              <div style={{ marginTop: '0.85rem', background: 'var(--bg-input)', borderRadius: '0.75rem', border: '1px solid var(--border)', padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search hub flavors…"
+                  value={flavorQuery}
+                  onChange={e => handleFlavorSearch(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem 0.9rem', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }}
+                />
+                {searchingFlavors && <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>Searching…</p>}
+                {flavorResults.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {flavorResults.map(f => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => handleAddFlavor(f)}
+                        style={{ textAlign: 'left', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.55rem 0.8rem', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--indigo)')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                      >
+                        <div style={{ fontSize: '0.78rem', fontWeight: 900, color: 'var(--text-main)' }}>#{f.name.toUpperCase()}</div>
+                        {f.description && <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.2rem', lineHeight: 1.4 }}>{f.description}</div>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!searchingFlavors && flavorQuery.trim() && flavorResults.length === 0 && (
+                  <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No matching flavors found.</p>
+                )}
               </div>
             )}
           </div>

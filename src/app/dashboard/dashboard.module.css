@@ -41,7 +41,7 @@
 
 .mainContent {
   flex: 1;
-  padding: 3rem;
+  padding: 1.5rem 3rem 3rem;
   overflow-y: auto;
   min-width: 0;
 }
@@ -136,8 +136,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  padding: 1rem 0;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg-header);
   -webkit-backdrop-filter: blur(10px);
@@ -249,7 +249,7 @@
 .contentWrapper {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0.5rem 2rem 2rem;
 }
 
 @media (max-width: 768px) {
@@ -369,16 +369,16 @@
 
 /* INTELLIGENCE FEED */
 .feedContainer {
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
   border-top: 2px solid var(--border);
-  padding-top: 1rem;
+  padding-top: 0.75rem;
 }
 
 .feedHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
 }
 
 .feedTitle {
@@ -797,7 +797,7 @@
 
 /* SOURCE FILTER — DROPDOWN */
 .sourceFilterContainer {
-  margin: 1.5rem 0;
+  margin: 0.5rem 0;
   padding: 0.5rem 0;
   position: relative;
   z-index: 30;
