@@ -218,7 +218,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                 await (supabase
                     .from('publications') as any)
                     .update({
-                        title: rawData.title,
+                        title: analysis.refined_title || rawData.title,
                         raw_content: transcript,
                         summary: summary,
                         synopsis: analysis.synopsis,

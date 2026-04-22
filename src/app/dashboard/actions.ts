@@ -350,20 +350,48 @@ export async function getRecentPublications(hubId: string, sourceId?: string, pa
   return (data as unknown as Publication[]) || []
 }
 
-export async function getPublicationHistory(hubId: string, page: number = 0): Promise<Publication[]> {
+export async function getPublicationHistory(
+  hubId: string, 
+  page: number = 0,
+  options?: {
+    search?: string;
+    flavor?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    sortAsc?: boolean;
+  }
+): Promise<Publication[]> {
   const supabase = await createClient()
   const pageSize = 20
   const from = page * pageSize
   const to = from + pageSize - 1
 
-  const { data } = await supabase
+  let query = supabase
     .from('publications')
     .select('*, monitored_sources(name)')
     .eq('hub_id', hubId)
     .eq('is_published', true)
     .neq('status', 'purged')
-    .order('curator_published_at', { ascending: false })
-    .range(from, to)
+
+  if (options?.search) {
+    query = query.ilike('title', `%${options.search}%`)
+  }
+
+  if (options?.flavor) {
+    query = query.contains('tags', [options.flavor])
+  }
+
+  if (options?.dateFrom) {
+    query = query.gte('curator_published_at', options.dateFrom)
+  }
+
+  if (options?.dateTo) {
+    query = query.lte('curator_published_at', options.dateTo)
+  }
+
+  query = query.order('curator_published_at', { ascending: options?.sortAsc ?? false })
+  
+  const { data } = await query.range(from, to)
 
   return (data as unknown as Publication[]) || []
 }

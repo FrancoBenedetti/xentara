@@ -108,6 +108,7 @@ export interface TasteAnalysis {
   sentiment: number;
   tags: string[];
   new_suggestions?: { name: string, description: string }[];
+  refined_title?: string;
 }
 
 /**
@@ -139,7 +140,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
   const taxonomyDesc = tags?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
   const isStrict = hub?.strictness === 'strict';
 
-  const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The byline and synopsis MUST be written in ${contentLanguage}.` : '';
+  const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The refined_title, byline and synopsis MUST be written in ${contentLanguage}.` : '';
 
   const prompt = `
     Analyze this content titled "${title}" for the Xentara Collective.
@@ -153,6 +154,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
     3. Sentiment score -1.0 to 1.0.
     4. Limit result to 5 total tags.
     5. Provide a 2-3 sentence 'synopsis' of the article.
+    6. Provide a 'refined_title' that is a clean, compelling version of the original title, translated to the target language if required.
     ${languageInstruction}
 
     Return ONLY a JSON object:
@@ -161,7 +163,8 @@ export async function predictTaste(summary: string | null | undefined, title: st
       "synopsis": "string",
       "sentiment": number,
       "tags": ["string", ...],
-      "new_suggestions": [{"name": "string", "description": "string"}] 
+      "new_suggestions": [{"name": "string", "description": "string"}],
+      "refined_title": "string"
     }
 
     Content Summary: ${summary.substring(0, 4000)}
@@ -217,7 +220,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
     
     const taxonomyDesc = tags?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
     const isStrict = hub?.strictness === 'strict';
-    const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The byline and synopsis MUST be written in ${contentLanguage}.` : '';
+    const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The refined_title, byline and synopsis MUST be written in ${contentLanguage}.` : '';
 
     const prompt = `
       Analyze this content titled "${title}" for the Xentara Collective.
@@ -231,6 +234,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
       3. Sentiment score -1.0 to 1.0. 
       4. Limit result to 5 total tags.
       5. Provide a 2-3 sentence 'synopsis' of the article.
+      6. Provide a 'refined_title' that is a clean, compelling version of the original title, translated to the target language if required.
       ${languageInstruction}
 
       Return ONLY a JSON object:
@@ -239,7 +243,8 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
         "synopsis": "string",
         "sentiment": number,
         "tags": ["string", ...],
-        "new_suggestions": [{"name": "string", "description": "string"}] 
+        "new_suggestions": [{"name": "string", "description": "string"}],
+        "refined_title": "string"
       }
 
       Content Summary: ${summary.substring(0, 10000)}

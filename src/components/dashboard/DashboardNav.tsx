@@ -16,9 +16,10 @@ interface NavItemProps {
   icon: string;
   label: string;
   disabled?: boolean;
+  children?: React.ReactNode;
 }
 
-const DesktopNavItem = ({ href, icon, label, disabled }: NavItemProps) => {
+const DesktopNavItem = ({ href, icon, label, disabled, children }: NavItemProps) => {
   const pathname = usePathname();
   const isActive = pathname === href;
 
@@ -44,11 +45,13 @@ const DesktopNavItem = ({ href, icon, label, disabled }: NavItemProps) => {
           fontWeight: 700, 
           fontSize: '0.9rem',
           textDecoration: 'none',
-          transition: 'color 0.2s ease'
+          transition: 'color 0.2s ease',
+          marginBottom: children ? '0.75rem' : 0
         }}
       >
         <span style={{ color: isActive ? 'var(--indigo)' : 'var(--text-muted)' }}>{icon}</span> {label}
       </Link>
+      {children}
     </li>
   );
 };
@@ -84,6 +87,7 @@ const MobileNavItem = ({ href, icon, label, disabled }: NavItemProps) => {
 export default function DashboardNav({ hubs }: DashboardNavProps) {
   const supabase = createClient();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -116,14 +120,48 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
         <div style={{ marginTop: '2rem' }}>
           <h3 style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Your Collectives</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {hubs.map((hub) => (
-              <DesktopNavItem 
-                key={hub.id} 
-                href={`/dashboard/hubs/${hub.slug}`} 
-                icon="⬢" 
-                label={hub.name} 
-              />
-            ))}
+            {hubs.map((hub) => {
+              const isActiveHub = pathname.startsWith(`/dashboard/hubs/${hub.slug}`);
+              return (
+                <DesktopNavItem 
+                  key={hub.id}
+                  href={`/dashboard/hubs/${hub.slug}`} 
+                  icon="⬢" 
+                  label={hub.name}
+                >
+                  {isActiveHub && (
+                    <ul style={{ listStyle: 'none', paddingLeft: '1.5rem', marginTop: '-0.25rem' }}>
+                      <li style={{ marginBottom: '0.5rem' }}>
+                        <Link href={`/dashboard/hubs/${hub.slug}/promotions`} style={{ 
+                          fontSize: '0.75rem', 
+                          fontWeight: 800, 
+                          color: pathname.includes('/promotions') ? 'var(--indigo)' : 'var(--text-muted)',
+                          textDecoration: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <span style={{ fontSize: '0.6rem' }}>📢</span> PROMOTIONS
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href={`/dashboard/hubs/${hub.slug}/settings`} style={{ 
+                          fontSize: '0.75rem', 
+                          fontWeight: 800, 
+                          color: pathname.includes('/settings') && !pathname.endsWith('/settings') ? 'var(--text-muted)' : (pathname.endsWith('/settings') ? 'var(--indigo)' : 'var(--text-muted)'),
+                          textDecoration: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <span style={{ fontSize: '0.6rem' }}>⚙️</span> SETTINGS
+                        </Link>
+                      </li>
+                    </ul>
+                  )}
+                </DesktopNavItem>
+              );
+            })}
           </ul>
         </div>
 

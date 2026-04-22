@@ -45,6 +45,9 @@ export default async function HubDetailPage({
           <Link href={`/dashboard/hubs/${hub.slug}/intelligence`} style={{ color: 'var(--text-main)', textDecoration: 'none', fontSize: '0.9rem', padding: '0.5rem 1rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
              🧠 Intelligence
           </Link>
+          <Link href={`/dashboard/hubs/${hub.slug}/promotions`} style={{ color: 'var(--text-main)', textDecoration: 'none', fontSize: '0.9rem', padding: '0.5rem 1rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
+             📢 Promotions
+          </Link>
           <Link href={`/dashboard/hubs/${hub.slug}/settings`} style={{ color: 'var(--text-main)', textDecoration: 'none', fontSize: '0.9rem', padding: '0.5rem 1rem', border: '1px solid var(--border)', borderRadius: '6px' }}>
              ⚙️ Settings
           </Link>
