@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition, useMemo, useCallback } from 'react'
+import { useState, useTransition, useMemo, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmTag, deleteTag, mergeTags, bulkConfirmTags, bulkDeleteTags } from '@/app/dashboard/taxonomy/actions'
+import { confirmTag, deleteTag, mergeTags, bulkConfirmTags, bulkDeleteTags, getTagTranslations, upsertTagTranslation, deleteTagTranslation, TagTranslation } from '@/app/dashboard/taxonomy/actions'
 import { addHubTag, updateHubTag } from '@/app/dashboard/actions'
 import styles from '@/app/dashboard/dashboard.module.css'
 
@@ -16,7 +16,25 @@ interface Tag {
 interface Hub {
   id: string
   name: string
+  content_language?: string
 }
+
+// Common BCP-47 languages for the picker
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'af', label: 'Afrikaans' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'es', label: 'Español' },
+  { code: 'pt', label: 'Português' },
+  { code: 'nl', label: 'Nederlands' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'zh', label: '中文' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'sw', label: 'Kiswahili' },
+  { code: 'xh', label: 'isiXhosa' },
+  { code: 'zu', label: 'isiZulu' },
+]
 
 const PAGE_SIZE = 25
 
@@ -26,10 +44,12 @@ export default function TaxonomyStudio({
   initialHubs,
   initialTaxonomy,
   selectedHubId,
+  selectedHub,
 }: {
   initialHubs: Hub[]
   initialTaxonomy: { confirmed: Tag[]; unconfirmed: Tag[] }
   selectedHubId: string
+  selectedHub?: Hub
 }) {
   const router = useRouter()
   const [taxonomy, setTaxonomy] = useState(initialTaxonomy)
@@ -46,6 +66,16 @@ export default function TaxonomyStudio({
   const [newTag, setNewTag] = useState({ name: '', description: '' })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
+
+  // ── Language state ─────────────────────────────────────────────────────────
+  // Default to hub's content_language, fall back to 'en'
+  const [viewLang, setViewLang] = useState(selectedHub?.content_language || 'en')
+  // Per-tag translation cache: tagId → { language → TagTranslation }
+  const [translationCache, setTranslationCache] = useState<Record<string, TagTranslation[]>>({})
+  const [loadingTranslations, setLoadingTranslations] = useState<Set<string>>(new Set())
+  // Translation edit state
+  const [editingTranslation, setEditingTranslation] = useState<{ tagId: string; lang: string } | null>(null)
+  const [translationEdit, setTranslationEdit] = useState({ name: '', description: '' })
 
   // ── Derived lists ──────────────────────────────────────────────────────────
 
@@ -94,6 +124,54 @@ export default function TaxonomyStudio({
       router.push(`/dashboard/taxonomy?hubId=${hubId}`)
     })
   }
+
+  // ── Translation helpers ────────────────────────────────────────────────────
+
+  /** Lazily load translations for a tag the first time its row is expanded */
+  const loadTranslations = useCallback(async (tagId: string) => {
+    if (translationCache[tagId] || loadingTranslations.has(tagId)) return
+    setLoadingTranslations(prev => new Set(prev).add(tagId))
+    const translations = await getTagTranslations(tagId)
+    setTranslationCache(prev => ({ ...prev, [tagId]: translations }))
+    setLoadingTranslations(prev => { const s = new Set(prev); s.delete(tagId); return s })
+  }, [translationCache, loadingTranslations])
+
+  /** Get the display name/description for a tag in the current viewLang */
+  const getDisplayed = useCallback((tag: Tag) => {
+    const cached = translationCache[tag.id]
+    const match = cached?.find(t => t.language === viewLang)
+    if (match) return { name: match.name, description: match.description || tag.description, isTranslated: true }
+    return { name: tag.name, description: tag.description, isTranslated: false }
+  }, [translationCache, viewLang])
+
+  const handleSaveTranslation = useCallback(async (tagId: string) => {
+    await upsertTagTranslation(tagId, editingTranslation!.lang, translationEdit.name, translationEdit.description)
+    setTranslationCache(prev => {
+      const existing = prev[tagId] || []
+      const filtered = existing.filter(t => t.language !== editingTranslation!.lang)
+      return {
+        ...prev,
+        [tagId]: [
+          ...filtered,
+          { id: '', tag_id: tagId, language: editingTranslation!.lang, name: translationEdit.name, description: translationEdit.description }
+        ]
+      }
+    })
+    setEditingTranslation(null)
+  }, [editingTranslation, translationEdit])
+
+  const handleDeleteTranslation = useCallback(async (tagId: string, lang: string) => {
+    await deleteTagTranslation(tagId, lang)
+    setTranslationCache(prev => ({
+      ...prev,
+      [tagId]: (prev[tagId] || []).filter(t => t.language !== lang)
+    }))
+  }, [])
+
+  // Load translations when a row is expanded
+  useEffect(() => {
+    if (expandedId) loadTranslations(expandedId)
+  }, [expandedId])
 
   const handleConfirm = useCallback((tagId: string) => {
     startTransition(async () => {
@@ -322,9 +400,17 @@ export default function TaxonomyStudio({
             onClick={() => setExpandedId(isExpanded ? null : tag.id)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', flex: 1, padding: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}
           >
-            <span style={{ fontWeight: 900, fontSize: '0.84rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              #{tag.name.toUpperCase()}
-            </span>
+            {(() => {
+              const { name: displayName, isTranslated } = getDisplayed(tag)
+              return (
+                <span style={{ fontWeight: 900, fontSize: '0.84rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  #{displayName.toUpperCase()}
+                  {isTranslated && (
+                    <span title={`Translated (${viewLang})`} style={{ fontSize: '0.65rem', color: 'var(--indigo)', flexShrink: 0 }}>🌐</span>
+                  )}
+                </span>
+              )
+            })()}
             {!tag.is_confirmed && (
               <span style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontSize: '0.58rem', fontWeight: 900, padding: '0.1rem 0.45rem', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.4)', flexShrink: 0 }}>
                 AI DRAFT
@@ -361,14 +447,89 @@ export default function TaxonomyStudio({
           </div>
         </div>
 
-        {/* Accordion: description */}
-        {isExpanded && (
-          <div style={{ padding: '0 1rem 0.75rem', borderTop: '1px solid var(--border)' }}>
-            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.55, marginTop: '0.55rem' }}>
-              {tag.description || <em>No description.</em>}
-            </p>
-          </div>
-        )}
+        {/* Accordion: description + translations */}
+        {isExpanded && (() => {
+          const { description: displayDesc, isTranslated } = getDisplayed(tag)
+          const cached = translationCache[tag.id] || []
+          const isLoadingT = loadingTranslations.has(tag.id)
+          const editingThisTag = editingTranslation?.tagId === tag.id
+
+          return (
+            <div style={{ borderTop: '1px solid var(--border)' }}>
+              {/* Description in current lang */}
+              <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+                <p style={{ fontSize: '0.74rem', color: isTranslated ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 600, lineHeight: 1.55, margin: 0, flex: 1 }}>
+                  {displayDesc || <em>No description.</em>}
+                </p>
+                {/* Add/edit translation for current lang */}
+                {viewLang !== 'en' && (
+                  <button
+                    style={{ ...btn('ghost'), fontSize: '0.6rem', flexShrink: 0 }}
+                    onClick={() => {
+                      const existing = cached.find(t => t.language === viewLang)
+                      setEditingTranslation({ tagId: tag.id, lang: viewLang })
+                      setTranslationEdit({ name: existing?.name || tag.name, description: existing?.description || tag.description || '' })
+                    }}
+                  >
+                    {cached.find(t => t.language === viewLang) ? '✎ EDIT TRANSLATION' : '+ ADD TRANSLATION'}
+                  </button>
+                )}
+              </div>
+
+              {/* Inline translation editor */}
+              {editingThisTag && editingTranslation?.lang === viewLang && (
+                <div style={{ padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.06)', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--indigo)', letterSpacing: '0.08em' }}>
+                    TRANSLATION — {LANGUAGES.find(l => l.code === viewLang)?.label || viewLang}
+                  </span>
+                  <input
+                    value={translationEdit.name}
+                    onChange={e => setTranslationEdit(v => ({ ...v, name: e.target.value }))}
+                    placeholder="Translated name…"
+                    style={{ ...inputStyle, fontWeight: 800 }}
+                  />
+                  <textarea
+                    value={translationEdit.description}
+                    onChange={e => setTranslationEdit(v => ({ ...v, description: e.target.value }))}
+                    placeholder="Translated description (optional)…"
+                    rows={2}
+                    style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
+                  />
+                  <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                    <button style={btn('primary')} onClick={() => handleSaveTranslation(tag.id)}>SAVE</button>
+                    <button style={btn('ghost')} onClick={() => setEditingTranslation(null)}>CANCEL</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Other languages section */}
+              {isLoadingT && (
+                <p style={{ padding: '0.5rem 1rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700 }}>Loading translations…</p>
+              )}
+              {!isLoadingT && cached.filter(t => t.language !== viewLang).length > 0 && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '0.5rem 1rem 0.75rem' }}>
+                  <p style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>OTHER LANGUAGES</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {cached.filter(t => t.language !== viewLang).map(t => (
+                      <div key={t.language} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-input)', borderRadius: '0.4rem', padding: '0.35rem 0.6rem' }}>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--indigo)', minWidth: '2.5rem' }}>{t.language.toUpperCase()}</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-main)', flex: 1 }}>{t.name}</span>
+                        <button
+                          style={{ ...btn('ghost'), fontSize: '0.6rem' }}
+                          onClick={() => { setEditingTranslation({ tagId: tag.id, lang: t.language }); setTranslationEdit({ name: t.name, description: t.description || '' }) }}
+                        >✎</button>
+                        <button
+                          style={{ ...btn('danger'), fontSize: '0.6rem' }}
+                          onClick={() => handleDeleteTranslation(tag.id, t.language)}
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Merge combobox */}
         {isMerging && (
@@ -429,16 +590,46 @@ export default function TaxonomyStudio({
             {taxonomy.confirmed.length} confirmed · {taxonomy.unconfirmed.length} AI suggestions
           </p>
         </div>
-        <select
-          value={selectedHubId}
-          onChange={e => handleHubChange(e.target.value)}
-          className={styles.input}
-          style={{ width: '200px', colorScheme: 'dark', background: 'var(--bg-surface)' }}
-        >
-          {initialHubs.map(hub => (
-            <option key={hub.id} value={hub.id}>{hub.name}</option>
-          ))}
-        </select>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+          {/* Hub selector */}
+          <select
+            value={selectedHubId}
+            onChange={e => handleHubChange(e.target.value)}
+            className={styles.input}
+            style={{ width: '200px', colorScheme: 'dark', background: 'var(--bg-surface)' }}
+          >
+            {initialHubs.map(hub => (
+              <option key={hub.id} value={hub.id}>{hub.name}</option>
+            ))}
+          </select>
+          {/* Language selector */}
+          <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {LANGUAGES.map(lang => (
+              <button
+                key={lang.code}
+                onClick={() => setViewLang(lang.code)}
+                title={lang.label}
+                style={{
+                  padding: '0.2rem 0.55rem',
+                  fontSize: '0.6rem',
+                  fontWeight: 900,
+                  borderRadius: '2rem',
+                  cursor: 'pointer',
+                  border: `1px solid ${viewLang === lang.code ? 'var(--indigo)' : 'var(--border)'}`,
+                  background: viewLang === lang.code ? 'var(--indigo)' : 'var(--bg-input)',
+                  color: viewLang === lang.code ? '#fff' : 'var(--text-muted)',
+                }}
+              >
+                {lang.code.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          {viewLang !== 'en' && (
+            <p style={{ fontSize: '0.6rem', color: 'var(--indigo)', fontWeight: 700, margin: 0 }}>
+              🌐 Viewing in {LANGUAGES.find(l => l.code === viewLang)?.label || viewLang} · 🌐 = translated
+            </p>
+          )}
+        </div>
       </header>
 
       {/* Search + Tabs + Add */}

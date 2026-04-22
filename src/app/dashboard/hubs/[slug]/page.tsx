@@ -58,7 +58,7 @@ export default async function HubDetailPage({
         <div className={styles.hubDetailLayout}>
           <div>
             <SourceFilter sources={sources} activeSourceId={sourceId} />
-            <IntelligenceFeed hubId={hub.id} sourceId={sourceId} />
+            <IntelligenceFeed hubId={hub.id} sourceId={sourceId} hubRole={hub.role} />
           </div>
           
           <aside className={styles.hubDetailAside}>

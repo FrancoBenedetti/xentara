@@ -67,9 +67,10 @@ const SimpleMarkdown = ({ children }: { children: string }) => {
 interface Props {
   publication: Publication;
   onClose: () => void;
+  hubRole?: string;
 }
 
-export default function RepublishModal({ publication, onClose }: Props) {
+export default function RepublishModal({ publication, onClose, hubRole }: Props) {
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'markdown' | 'html'>('markdown')
   const [formData, setFormData] = useState({
@@ -244,7 +245,7 @@ export default function RepublishModal({ publication, onClose }: Props) {
                         {tag.is_suppressed && <span style={{ fontSize: '0.6rem', fontWeight: 900 }}>(EXCLUDED)</span>}
                       </button>
                     )}
-                    {editingTagId !== tag.id && (
+                    {editingTagId !== tag.id && (hubRole === 'owner' || hubRole === 'editor') && (
                       <button
                         type="button"
                         title="Edit label"

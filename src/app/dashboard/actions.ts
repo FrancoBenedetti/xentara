@@ -378,7 +378,35 @@ export async function getPublicationHistory(
   }
 
   if (options?.flavor) {
-    query = query.contains('tags', [options.flavor])
+    // Resolve against curated hub_tags (survives renames; excludes suppressed assignments)
+    const { data: tagRows } = await supabase
+      .from('hub_tags' as never)
+      .select('id')
+      .eq('hub_id', hubId)
+      .eq('is_confirmed', true)
+      .ilike('name', options.flavor) as any
+
+    const tagIds: string[] = (tagRows as any[] || []).map((t: any) => t.id)
+
+    if (tagIds.length > 0) {
+      const { data: pubTagRows } = await supabase
+        .from('publication_hub_tags' as never)
+        .select('publication_id')
+        .in('tag_id', tagIds)
+        .eq('is_suppressed', false) as any
+
+      const linkedPubIds: string[] = (pubTagRows as any[] || []).map((r: any) => r.publication_id)
+
+      if (linkedPubIds.length > 0) {
+        query = query.in('id', linkedPubIds)
+      } else {
+        // No publications linked to this flavor — return empty rather than all
+        return []
+      }
+    } else {
+      // Tag not in hub_tags yet — fall back to raw tags[] array search
+      query = query.contains('tags', [options.flavor])
+    }
   }
 
   if (options?.dateFrom) {

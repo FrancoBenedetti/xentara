@@ -121,44 +121,42 @@ export default function DashboardNav({ hubs }: DashboardNavProps) {
           <h3 style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Your Collectives</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {hubs.map((hub) => {
-              const isActiveHub = pathname.startsWith(`/dashboard/hubs/${hub.slug}`);
+              const hubBase = `/dashboard/hubs/${hub.slug}`;
               return (
                 <DesktopNavItem 
                   key={hub.id}
-                  href={`/dashboard/hubs/${hub.slug}`} 
+                  href={hubBase} 
                   icon="⬢" 
                   label={hub.name}
                 >
-                  {isActiveHub && (
-                    <ul style={{ listStyle: 'none', paddingLeft: '1.5rem', marginTop: '-0.25rem' }}>
-                      <li style={{ marginBottom: '0.5rem' }}>
-                        <Link href={`/dashboard/hubs/${hub.slug}/promotions`} style={{ 
-                          fontSize: '0.75rem', 
-                          fontWeight: 800, 
-                          color: pathname.includes('/promotions') ? 'var(--indigo)' : 'var(--text-muted)',
-                          textDecoration: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}>
-                          <span style={{ fontSize: '0.6rem' }}>📢</span> PROMOTIONS
-                        </Link>
-                      </li>
-                      <li>
-                        <Link href={`/dashboard/hubs/${hub.slug}/settings`} style={{ 
-                          fontSize: '0.75rem', 
-                          fontWeight: 800, 
-                          color: pathname.includes('/settings') && !pathname.endsWith('/settings') ? 'var(--text-muted)' : (pathname.endsWith('/settings') ? 'var(--indigo)' : 'var(--text-muted)'),
-                          textDecoration: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}>
-                          <span style={{ fontSize: '0.6rem' }}>⚙️</span> SETTINGS
-                        </Link>
-                      </li>
-                    </ul>
-                  )}
+                  <ul style={{ listStyle: 'none', paddingLeft: '1.5rem', marginTop: '-0.25rem' }}>
+                    <li style={{ marginBottom: '0.5rem' }}>
+                      <Link href={`${hubBase}/promotions`} style={{ 
+                        fontSize: '0.75rem', 
+                        fontWeight: 800, 
+                        color: pathname === `${hubBase}/promotions` ? 'var(--indigo)' : 'var(--text-muted)',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}>
+                        <span style={{ fontSize: '0.6rem' }}>📢</span> PROMOTIONS
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href={`${hubBase}/settings`} style={{ 
+                        fontSize: '0.75rem', 
+                        fontWeight: 800, 
+                        color: pathname === `${hubBase}/settings` ? 'var(--indigo)' : 'var(--text-muted)',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}>
+                        <span style={{ fontSize: '0.6rem' }}>⚙️</span> SETTINGS
+                      </Link>
+                    </li>
+                  </ul>
                 </DesktopNavItem>
               );
             })}

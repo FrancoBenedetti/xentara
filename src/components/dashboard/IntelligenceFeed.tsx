@@ -4,9 +4,10 @@ import IntelligenceFeedClient from './IntelligenceFeedClient'
 interface IntelligenceFeedProps {
   hubId: string
   sourceId?: string
+  hubRole?: string
 }
 
-export default async function IntelligenceFeed({ hubId, sourceId }: IntelligenceFeedProps) {
+export default async function IntelligenceFeed({ hubId, sourceId, hubRole }: IntelligenceFeedProps) {
   const publications = await getRecentPublications(hubId, sourceId) 
 
   return (
@@ -15,6 +16,7 @@ export default async function IntelligenceFeed({ hubId, sourceId }: Intelligence
       initialPublications={publications}
       hubId={hubId}
       sourceId={sourceId}
+      hubRole={hubRole}
     />
   )
 }

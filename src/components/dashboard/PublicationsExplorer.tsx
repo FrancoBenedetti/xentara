@@ -37,21 +37,30 @@ export default function PublicationsExplorer({
   const [hasMore, setHasMore] = useState(initialPublications.length >= 20)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Update URL when filters change
-  const updateUrl = useCallback(() => {
-    const params = new URLSearchParams(searchParams)
-    if (selectedHubId) params.set('hub', selectedHubId)
-    if (search) params.set('q', search); else params.delete('q');
-    if (flavor) params.set('flavor', flavor); else params.delete('flavor');
-    if (dateFrom) params.set('from', dateFrom); else params.delete('from');
-    if (dateTo) params.set('to', dateTo); else params.delete('to');
-    if (sortAsc) params.set('sort', 'asc'); else params.delete('sort');
-    
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [selectedHubId, search, flavor, dateFrom, dateTo, sortAsc, pathname, router, searchParams])
+  // Skip reload on first mount — server already delivered initial data
+  const isFirstRender = useRef(true)
 
-  // Reload data when filters change
+  // Write current filter state to the URL
+  const updateUrl = useCallback(() => {
+    const params = new URLSearchParams()
+    if (selectedHubId) params.set('hub', selectedHubId)
+    if (search) params.set('q', search)
+    if (flavor) params.set('flavor', flavor)
+    if (dateFrom) params.set('from', dateFrom)
+    if (dateTo) params.set('to', dateTo)
+    if (sortAsc) params.set('sort', 'asc')
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [selectedHubId, search, flavor, dateFrom, dateTo, sortAsc, pathname, router])
+
+  // Reload data when filters change (skips first mount)
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    // Commit filters to URL immediately so they survive navigation before fetch completes
+    updateUrl()
+
     const reload = async () => {
       setIsLoading(true)
       setPage(0)
@@ -65,10 +74,9 @@ export default function PublicationsExplorer({
       setPublications(data)
       setHasMore(data.length >= 20)
       setIsLoading(false)
-      updateUrl()
     }
-    
-    // Debounce search input
+
+    // Debounce the actual data fetch
     const timer = setTimeout(reload, 300)
     return () => clearTimeout(timer)
   }, [selectedHubId, search, flavor, dateFrom, dateTo, sortAsc])
@@ -113,6 +121,10 @@ export default function PublicationsExplorer({
       setIsLoading(false)
     }
   }
+
+  // Derive the current user's role for the selected hub
+  const selectedHub = hubs.find(h => h.id === selectedHubId)
+  const hubRole = selectedHub?.role
 
   return (
     <div className={styles.explorerContainer}>
@@ -222,7 +234,7 @@ export default function PublicationsExplorer({
             const isLast = index === publications.length - 1
             return (
               <div key={pub.id} ref={isLast ? lastElementRef : null}>
-                <PublicationCard pub={pub} />
+                <PublicationCard pub={pub} hubRole={hubRole} />
               </div>
             )
           })

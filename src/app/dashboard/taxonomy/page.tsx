@@ -16,6 +16,7 @@ export default async function TaxonomyPage({ searchParams }: { searchParams: Pro
   
   // For now, load taxonomy for the first hub
   const selectedHubId = (params.hubId as string) || hubs[0]?.id
+  const selectedHub = hubs.find(h => h.id === selectedHubId)
   const taxonomy = selectedHubId ? await fetchTaxonomy(selectedHubId) : { confirmed: [], unconfirmed: [] }
 
   return (
@@ -53,9 +54,10 @@ export default async function TaxonomyPage({ searchParams }: { searchParams: Pro
         ) : (
           <TaxonomyStudio 
              key={selectedHubId}
-             initialHubs={hubs.map(h => ({ id: h.id, name: h.name }))}
+             initialHubs={hubs.map(h => ({ id: h.id, name: h.name, content_language: h.content_language }))}
              initialTaxonomy={taxonomy}
              selectedHubId={selectedHubId}
+             selectedHub={selectedHub ? { id: selectedHub.id, name: selectedHub.name, content_language: selectedHub.content_language } : undefined}
           />
         )}
       </div>

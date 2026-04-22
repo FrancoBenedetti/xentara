@@ -9,12 +9,14 @@ interface IntelligenceFeedClientProps {
   initialPublications: Publication[]
   hubId: string
   sourceId?: string
+  hubRole?: string
 }
 
 export default function IntelligenceFeedClient({ 
   initialPublications,
   hubId,
-  sourceId 
+  sourceId,
+  hubRole
 }: IntelligenceFeedClientProps) {
   const [publications, setPublications] = useState<Publication[]>(initialPublications)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -165,6 +167,7 @@ export default function IntelligenceFeedClient({
                     selectable={!pub.is_published}
                     isSelected={selectedIds.includes(pub.id)}
                     onSelect={() => toggleSelection(pub.id)}
+                    hubRole={hubRole}
                 />
               </div>
             )

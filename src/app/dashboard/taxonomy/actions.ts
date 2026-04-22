@@ -3,6 +3,88 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// ── Translation types ──────────────────────────────────────────────────────
+
+export interface TagTranslation {
+  id: string
+  tag_id: string
+  language: string
+  name: string
+  description?: string
+}
+
+// ── Translation actions ────────────────────────────────────────────────────
+
+/** Fetch all translations for a single tag */
+export async function getTagTranslations(tagId: string): Promise<TagTranslation[]> {
+  const supabase = await createClient()
+  const { data } = await (supabase
+    .from('hub_tag_translations' as never) as any)
+    .select('*')
+    .eq('tag_id', tagId)
+    .order('language', { ascending: true })
+  return (data as TagTranslation[]) || []
+}
+
+/** Fetch translations for all tags in a hub for a given language (name + description overrides) */
+export async function getHubTagTranslations(
+  hubId: string,
+  language: string
+): Promise<Record<string, { name: string; description?: string }>> {
+  const supabase = await createClient()
+
+  // First get all tag ids for this hub
+  const { data: tags } = await (supabase
+    .from('hub_tags' as never) as any)
+    .select('id')
+    .eq('hub_id', hubId)
+
+  const tagIds: string[] = (tags as any[] || []).map((t: any) => t.id)
+  if (tagIds.length === 0) return {}
+
+  const { data: translations } = await (supabase
+    .from('hub_tag_translations' as never) as any)
+    .select('tag_id, name, description')
+    .in('tag_id', tagIds)
+    .eq('language', language)
+
+  const map: Record<string, { name: string; description?: string }> = {}
+  for (const t of (translations as any[] || [])) {
+    map[t.tag_id] = { name: t.name, description: t.description }
+  }
+  return map
+}
+
+/** Create or update a translation for a tag in a given language */
+export async function upsertTagTranslation(
+  tagId: string,
+  language: string,
+  name: string,
+  description: string
+): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await (supabase
+    .from('hub_tag_translations' as never) as any)
+    .upsert(
+      { tag_id: tagId, language, name: name.trim(), description: description.trim(), updated_at: new Date().toISOString() },
+      { onConflict: 'tag_id,language' }
+    )
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/taxonomy')
+}
+
+/** Delete a specific language translation for a tag */
+export async function deleteTagTranslation(tagId: string, language: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await (supabase
+    .from('hub_tag_translations' as never) as any)
+    .delete()
+    .eq('tag_id', tagId)
+    .eq('language', language)
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard/taxonomy')
+}
+
 export async function fetchTaxonomy(hubId: string) {
   const supabase = await createClient()
   

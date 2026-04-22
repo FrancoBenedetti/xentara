@@ -11,9 +11,10 @@ interface PublicationCardProps {
   selectable?: boolean
   isSelected?: boolean
   onSelect?: () => void
+  hubRole?: string
 }
 
-export default function PublicationCard({ pub, selectable, isSelected, onSelect }: PublicationCardProps) {
+export default function PublicationCard({ pub, selectable, isSelected, onSelect, hubRole }: PublicationCardProps) {
   const [showModal, setShowModal] = useState(false)
 
   const isProcessing = ['raw', 'transcribing', 'summarizing'].includes(pub.status)
@@ -160,7 +161,7 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect 
       </div>
 
       {showModal && (
-        <RepublishModal publication={pub} onClose={() => setShowModal(false)} />
+        <RepublishModal publication={pub} onClose={() => setShowModal(false)} hubRole={hubRole} />
       )}
     </div>
   )
