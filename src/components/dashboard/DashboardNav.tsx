@@ -189,6 +189,24 @@ export default function DashboardNav({ hubs, isStaff }: DashboardNavProps) {
                   <span style={{ fontSize: '0.7rem' }}>✨</span> Platform Promotions
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/dashboard/admin/ingestion-failures"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    color: pathname === '/dashboard/admin/ingestion-failures' ? '#ef4444' : 'var(--text-muted)',
+                    textDecoration: 'none',
+                    padding: '0.3rem 0',
+                    transition: 'color 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: '0.7rem' }}>⚠️</span> Ingestion Failures
+                </Link>
+              </li>
             </ul>
           </div>
         )}

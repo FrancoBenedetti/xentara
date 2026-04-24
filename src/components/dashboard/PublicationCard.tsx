@@ -154,11 +154,13 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect,
         </div>
       </div>
 
-      <div className={styles.pubCardLinks}>
-        <a href={pub.source_url} target="_blank" rel="noopener noreferrer" className={styles.pubCardLink}>
-          ORIGINAL ↗
-        </a>
-      </div>
+      {pub.source_url && (
+        <div className={styles.pubCardLinks}>
+          <a href={pub.source_url} target="_blank" rel="noopener noreferrer" className={styles.pubCardLink}>
+            ORIGINAL ↗
+          </a>
+        </div>
+      )}
 
       {showModal && (
         <RepublishModal publication={pub} onClose={() => setShowModal(false)} hubRole={hubRole} />

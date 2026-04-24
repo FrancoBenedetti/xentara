@@ -7,11 +7,19 @@ export interface RSSHubRouteSuggestion {
     category: string | undefined;
 }
 
-export const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'https://rss-hub-one-rose.vercel.app';
+// Trim any stray whitespace/control characters (tabs, CR, etc.) that may
+// creep in from .env.local CRLF line endings or editor artefacts.
+export const RSSHUB_BASE_URL = (
+    process.env.RSSHUB_BASE_URL || 'https://rss-hub-one-rose.vercel.app'
+).trim();
 
 /**
  * Resolves a RSSHub route path to a full feed URL.
  * Example: '/maroelamedia/nuus' -> 'https://rsshub.example.com/maroelamedia/nuus'
+ *
+ * Throws a descriptive error if the result is not an absolute URL so that
+ * misconfiguration is immediately visible rather than producing a cryptic
+ * "Failed to parse URL" fetch error downstream.
  */
 export function resolveRSSHubFeedUrl(routePath: string): string {
     if (routePath.startsWith('http://') || routePath.startsWith('https://')) {
@@ -19,7 +27,18 @@ export function resolveRSSHubFeedUrl(routePath: string): string {
     }
     const origin = RSSHUB_BASE_URL.replace(/\/$/, "");
     const base = routePath.startsWith("/") ? routePath : `/${routePath}`;
-    return `${origin}${base}`;
+    const resolved = `${origin}${base}`;
+
+    // Guard: ensure we actually produced an absolute URL
+    if (!resolved.startsWith('http://') && !resolved.startsWith('https://')) {
+        throw new Error(
+            `[RSSHub] Could not resolve absolute feed URL. ` +
+            `RSSHUB_BASE_URL="${RSSHUB_BASE_URL}" route="${routePath}" → "${resolved}". ` +
+            `Check your RSSHUB_BASE_URL environment variable.`
+        );
+    }
+
+    return resolved;
 }
 
 /**

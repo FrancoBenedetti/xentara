@@ -28,16 +28,32 @@ export async function discoverRecentItems(source: any) {
     } catch (discoveryError: any) {
         console.error(`Discovery process failed for ${source.url}:`, discoveryError.message);
         
-        // Create a failure notice in the publications so the curator sees the issue
+        // Resolve the feed URL for logging purposes.
+        // NOTE: source_url on publications semantically represents the *article* link.
+        // A feed-level failure has no article, so source_url must be null.
+        // We keep the resolved feed URL in the error_message for diagnostics.
+        const resolvedFeedUrl = source.type === 'rsshub'
+            ? resolveRSSHubFeedUrl(source.url)
+            : source.url;
+
+        const errorDetail = discoveryError.message || "Failed to resolve source or fetch items.";
+
+        // Upsert the failure sentinel: remove any existing one for this source first
+        // so the hourly cron never accumulates duplicates. One sentinel per source, always.
         const supabase = createServiceClient();
+        await (supabase.from('publications' as any) as any)
+            .delete()
+            .eq('source_id', source.id)
+            .ilike('title', '%NEURAL FAULT%');
+
         await (supabase.from('publications' as any) as any).insert({
             hub_id: source.hub_id,
             source_id: source.id,
             title: `NEURAL FAULT: Discovery Failed`,
             byline: `Source: ${source.name}`,
-            source_url: source.url,
+            source_url: null,  // No article URL exists for a feed-level failure
             status: 'failed',
-            error_message: discoveryError.message || "Failed to resolve source or fetch items."
+            error_message: `${errorDetail} [feed: ${resolvedFeedUrl}]`
         } as any);
         
         return { total_found: 0, tracked: 0, error: discoveryError.message };
@@ -55,13 +71,14 @@ export async function discoverRecentItems(source: any) {
     // Process up to 10 latest items to populate the board quickly
     const batch = items.slice(0, 10);
 
-    // If we successfully found items, clear any previous "Discovery Failed" notices for this source
+    // If we successfully found items, clear any previous "Discovery Failed" sentinels
+    // for this source — regardless of what status they may have drifted into (they
+    // can escape 'failed' if the curator accidentally triggers Reprocess on them).
     if (items.length > 0) {
         await (supabase.from('publications' as any) as any)
             .delete()
             .eq('source_id', source.id)
-            .eq('status', 'failed')
-            .ilike('title', '%Discovery Failed%');
+            .ilike('title', '%NEURAL FAULT%');
     }
 
     for (const item of batch) {

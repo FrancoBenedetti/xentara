@@ -1069,3 +1069,21 @@ export async function deletePlatformPromotion(id: string): Promise<void> {
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/admin/platform-promotions')
 }
+
+// ── Ingestion Failures (Xentara staff-managed) ─────────────────────────────
+
+export async function getIngestionFailures(page: number = 0): Promise<any[]> {
+  const supabase = await createClient()
+  const pageSize = 50
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
+  const { data } = await supabase
+    .from('publications')
+    .select('*, hubs(name), monitored_sources(name, type)')
+    .eq('status', 'failed')
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  return data || []
+}
