@@ -29,6 +29,10 @@ export const discoverNewContentOnce = (inngest as any).createFunction(
  * 2. DISCOVERY AGENT (Recurring)
  * Periodic scan of all whitelisted sources.
  */
+// Pause between source dispatches so the RSSHub Vercel instance isn't hit
+// with simultaneous cold-start requests, which causes transient 503s.
+const DISPATCH_STAGGER_MS = 2000;
+
 export const discoverNewContentRecurring = (inngest as any).createFunction(
   { id: "xentara-discovery-cron", triggers: [{ cron: "0 * * * *" }] },
   async ({ step }: any) => {
@@ -37,14 +41,20 @@ export const discoverNewContentRecurring = (inngest as any).createFunction(
 
     if (!sources) return { count: 0 };
 
-    for (const source of (sources as any[])) {
+    for (let i = 0; i < (sources as any[]).length; i++) {
+        const source = (sources as any[])[i];
         try {
             await inngest.send({
-              name: "xentara/source.added",
-              data: { sourceId: source.id, url: source.url, type: source.type }
+                name: "xentara/source.added",
+                data: { sourceId: source.id, url: source.url, type: source.type }
             });
         } catch (inngestError) {
             console.warn(`Failed to dispatch event for source ${source.id}:`, inngestError);
+        }
+
+        // Stagger: skip delay after the last source
+        if (i < (sources as any[]).length - 1) {
+            await new Promise(r => setTimeout(r, DISPATCH_STAGGER_MS));
         }
     }
 

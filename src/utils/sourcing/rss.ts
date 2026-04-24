@@ -1,5 +1,10 @@
 import Parser from 'rss-parser';
 
+// Status codes that are transient and worth retrying (not permanent failures like 403/404)
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+const BASE_BACKOFF_MS = 2000;
+
 const parser = new Parser({
     headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
@@ -15,39 +20,62 @@ const parser = new Parser({
  * Basic discovery of latest items in a feed
  */
 export async function fetchLatestArticlesFromFeed(url: string) {
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+                }
+            });
+
+            if (!response.ok) {
+                if (RETRYABLE_STATUS_CODES.has(response.status) && attempt < MAX_RETRIES) {
+                    const delay = BASE_BACKOFF_MS * Math.pow(2, attempt - 1);
+                    console.warn(
+                        `[RSS] Attempt ${attempt}/${MAX_RETRIES} — status ${response.status} for ${url}. ` +
+                        `Retrying in ${delay}ms...`
+                    );
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+                throw new Error(`Status code ${response.status}: Failed to fetch feed`);
             }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Status code ${response.status}: Failed to fetch feed`);
+
+            const xml = await response.text();
+            const feed = await parser.parseString(xml);
+
+            return {
+                metadata: {
+                    title: feed.title,
+                    description: feed.description,
+                    link: feed.link,
+                },
+                items: feed.items.map(item => ({
+                    id: item.guid || item.link,
+                    title: item.title,
+                    link: item.link,
+                    pubDate: item.pubDate,
+                    content: item['content:encoded'] || (item as any).content || (item as any).description || item.contentSnippet || null,
+                }))
+            };
+        } catch (error: any) {
+            lastError = error;
+            if (attempt < MAX_RETRIES) {
+                const delay = BASE_BACKOFF_MS * Math.pow(2, attempt - 1);
+                console.warn(
+                    `[RSS] Attempt ${attempt}/${MAX_RETRIES} — network error for ${url}: ` +
+                    `${error.message}. Retrying in ${delay}ms...`
+                );
+                await new Promise(r => setTimeout(r, delay));
+            }
         }
-        
-        const xml = await response.text();
-        const feed = await parser.parseString(xml);
-        
-        return {
-            metadata: {
-                title: feed.title,
-                description: feed.description,
-                link: feed.link,
-            },
-            items: feed.items.map(item => ({
-                id: item.guid || item.link,
-                title: item.title,
-                link: item.link,
-                pubDate: item.pubDate,
-                content: item['content:encoded'] || (item as any).content || (item as any).description || item.contentSnippet || null,
-            }))
-        };
-    } catch (error: any) {
-        console.error("RSS Discovery Error:", error.message);
-        throw error;
     }
+
+    console.error("RSS Discovery Error (all retries exhausted):", lastError?.message);
+    throw lastError;
 }
 
 /**
