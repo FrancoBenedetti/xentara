@@ -125,7 +125,7 @@ export const distributePublication = (inngest as any).createFunction(
                 switch_inline_query_current_chat: `#${tag}`
             }));
             
-            const inlineKeyboard = [row1];
+            const inlineKeyboard: any[] = [row1];
             if (tagButtons.length > 0) inlineKeyboard.push(tagButtons);
             if (row2.length > 0) inlineKeyboard.push(row2);
 
@@ -189,7 +189,7 @@ export const distributePublication = (inngest as any).createFunction(
                 switch_inline_query_current_chat: `#${tag}`
             }));
             
-            const inlineKeyboard = [row1];
+            const inlineKeyboard: any[] = [row1];
             if (tagButtons.length > 0) inlineKeyboard.push(tagButtons);
             if (row2.length > 0) inlineKeyboard.push(row2);
 

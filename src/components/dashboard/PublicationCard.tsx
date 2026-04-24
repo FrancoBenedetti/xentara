@@ -11,7 +11,6 @@ interface PublicationCardProps {
   selectable?: boolean
   isSelected?: boolean
   onSelect?: () => void
-  onSelect?: () => void
   hubRole?: string
   curatorTakeLabel?: string
 }
