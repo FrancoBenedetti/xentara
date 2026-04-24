@@ -1,21 +1,42 @@
 'use client'
 
 import { updateHubBranding } from '@/app/dashboard/actions'
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
+import { useFormStatus } from 'react-dom'
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button 
+      type="submit" 
+      disabled={pending}
+      style={{ 
+        background: 'var(--indigo)', 
+        color: '#ffffff', 
+        border: 'none', 
+        padding: '0.75rem 2rem', 
+        borderRadius: '0.75rem', 
+        fontSize: '0.8rem', 
+        fontWeight: 900, 
+        cursor: 'pointer',
+        boxShadow: 'var(--card-shadow)',
+        transition: 'all 0.2s',
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em'
+      }}
+    >
+      {pending ? 'Syncing...' : 'SAVE BRANDING'}
+    </button>
+  )
+}
 
 export default function BrandingForm({ hub }: { hub: any }) {
-  const [isPending, startTransition] = useTransition()
   const [color, setColor] = useState(hub.brand_color || '#6366f1')
+  const updateBrandingWithId = updateHubBranding.bind(null, hub.id)
 
   return (
     <form 
-      onSubmit={(e) => {
-        e.preventDefault()
-        const formData = new FormData(e.currentTarget)
-        startTransition(async () => {
-          await updateHubBranding(hub.id, formData)
-        })
-      }}
+      action={updateBrandingWithId}
       style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}
     >
       <div>
@@ -68,26 +89,7 @@ export default function BrandingForm({ hub }: { hub: any }) {
       </div>
 
       <div style={{ gridColumn: '1 / -1', marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-         <button 
-           type="submit" 
-           disabled={isPending}
-           style={{ 
-             background: 'var(--indigo)', 
-             color: '#ffffff', 
-             border: 'none', 
-             padding: '0.75rem 2rem', 
-             borderRadius: '0.75rem', 
-             fontSize: '0.8rem', 
-             fontWeight: 900, 
-             cursor: 'pointer',
-             boxShadow: 'var(--card-shadow)',
-             transition: 'all 0.2s',
-             textTransform: 'uppercase',
-             letterSpacing: '0.1em'
-           }}
-         >
-           {isPending ? 'Syncing...' : 'SAVE BRANDING'}
-         </button>
+         <SubmitButton />
       </div>
     </form>
   )

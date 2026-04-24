@@ -479,12 +479,11 @@ export async function updateHubBranding(id: string, formData: FormData) {
   const name = formData.get('name') as string
   const brand_color = formData.get('brand_color') as string
   const logo_url = formData.get('logo_url') as string
-  const strictness = formData.get('strictness') as string
   const curator_take_label = formData.get('curator_take_label') as string | null
 
   const { error } = await supabase
     .from('hubs' as never)
-    .update({ name, brand_color, logo_url, strictness, curator_take_label: curator_take_label || null } as never)
+    .update({ name, brand_color, logo_url, curator_take_label: curator_take_label || null } as never)
     .eq('id', id)
 
   if (error) throw new Error(error.message)
