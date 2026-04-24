@@ -6,7 +6,7 @@ import TaxonomyManager from './TaxonomyManager'
 import TeamManager from './TeamManager'
 import DistributionSettings from './DistributionSettings'
 import PromotionsManager from './PromotionsManager'
-import { Hub } from '@/app/dashboard/actions'
+import type { Hub } from '@/app/dashboard/actions'
 
 type Tab = 'branding' | 'taxonomy' | 'promotions' | 'team' | 'distribution'
 

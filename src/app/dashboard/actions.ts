@@ -3,7 +3,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { unstable_rethrow } from 'next/navigation'
-import { inngest } from '@/inngest/client'
+// Lazy-load inngest to avoid Turbopack compile-time resolution on routes that don't use it
+const getInngest = () => import('@/inngest/client').then(m => m.inngest)
 
 /**
  * --- PROFESSIONAL LOCAL SCHEMA ---
@@ -267,6 +268,7 @@ export async function addSource(hubId: string, formData: FormData) {
   if (source) {
     const s = source as unknown as MonitoredSource
     try {
+      const inngest = await getInngest()
       await inngest.send({
         name: "xentara/source.added",
         data: { sourceId: s.id, url: s.url, type: s.type }
@@ -314,6 +316,7 @@ export async function removeSource(id: string) {
 
 export async function refreshSource(id: string, url: string, type: string) {
   try {
+    const inngest = await getInngest()
     await inngest.send({
       name: "xentara/source.added",
       data: { sourceId: id, url: url, type: type }
@@ -460,6 +463,7 @@ export async function publishPublication(id: string, formData: FormData) {
       .single()
 
     if (pub) {
+      const inngest = await getInngest()
       await inngest.send({
         name: 'xentara/publication.published',
         data: { publicationId: id, hubId: (pub as any).hub_id }
@@ -619,6 +623,7 @@ export async function reprocessPublication(id: string, url: string) {
   const sourceType = (pub as unknown as PublicationResult)?.monitored_sources?.type || 'youtube';
 
   try {
+    const inngest = await getInngest()
     await inngest.send({
       name: "xentara/publication.detected",
       data: { 

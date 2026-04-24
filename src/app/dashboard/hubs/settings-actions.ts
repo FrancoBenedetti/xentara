@@ -70,6 +70,9 @@ export async function deleteHubChannel(id: string) {
 
 export async function getDistributionLogs(hubId: string) {
   const supabase = await createClient()
+
+  // Use !inner join to efficiently filter distribution logs 
+  // by the parent publication's hub_id in a single database query.
   const { data } = await supabase
     .from('distribution_log')
     .select(`
@@ -80,7 +83,7 @@ export async function getDistributionLogs(hubId: string) {
     .eq('publication.hub_id', hubId)
     .order('created_at', { ascending: false })
     .limit(50)
-  
+
   return data || []
 }
 
