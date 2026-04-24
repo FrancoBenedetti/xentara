@@ -46,13 +46,25 @@ export default function BrandingForm({ hub }: { hub: any }) {
       </div>
 
       <div>
-        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em' }}>Consumer Logo URL</label>
         <input 
           name="logo_url" 
           defaultValue={hub.logo_url} 
           placeholder="https://..."
           style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 700 }} 
         />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em' }}>Curator Commentary Label</label>
+        <input 
+          name="curator_take_label" 
+          defaultValue={hub.curator_take_label ?? ''} 
+          placeholder="e.g. Curator's Take, Wat dink ek?"
+          style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', padding: '0.75rem', borderRadius: '0.5rem', color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 700 }} 
+        />
+        <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+          Leave blank to use the default label "Curator's Take".
+        </p>
       </div>
 
       <div style={{ gridColumn: '1 / -1', marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>

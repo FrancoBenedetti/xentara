@@ -1,0 +1,2 @@
+ALTER TABLE hubs
+ADD COLUMN IF NOT EXISTS curator_take_label TEXT DEFAULT NULL;

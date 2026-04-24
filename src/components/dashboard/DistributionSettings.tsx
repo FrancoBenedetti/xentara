@@ -133,7 +133,7 @@ export default function DistributionSettings({ hubId, initialChannels, logs }: {
             ) : (
               logs.map(log => (
                 <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '1rem 0', fontSize: '0.9rem' }}>{new Date(log.created_at).toLocaleString()}</td>
+                  <td style={{ padding: '1rem 0', fontSize: '0.9rem' }}>{new Date(log.created_at).toLocaleString('en-GB')}</td>
                   <td style={{ padding: '1rem 0', fontSize: '0.9rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.publication?.title || 'Unknown'}</td>
                   <td style={{ padding: '1rem 0', fontSize: '0.9rem', textTransform: 'capitalize' }}>{log.platform}</td>
                   <td style={{ padding: '1rem 0', fontSize: '0.9rem' }}>{log.channel?.channel_name || log.target_id}</td>

@@ -12,6 +12,7 @@ interface IntelligenceFeedClientProps {
   sourceId?: string
   hubRole?: string
   promotions?: HubPromotion[]
+  curatorTakeLabel?: string
 }
 
 export default function IntelligenceFeedClient({ 
@@ -19,7 +20,8 @@ export default function IntelligenceFeedClient({
   hubId,
   sourceId,
   hubRole,
-  promotions = []
+  promotions = [],
+  curatorTakeLabel
 }: IntelligenceFeedClientProps) {
   const [publications, setPublications] = useState<Publication[]>(initialPublications)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -117,6 +119,7 @@ export default function IntelligenceFeedClient({
             isSelected={selectedIds.includes(pub.id)}
             onSelect={() => toggleSelection(pub.id)}
             hubRole={hubRole}
+            curatorTakeLabel={curatorTakeLabel}
           />
         </div>
       )

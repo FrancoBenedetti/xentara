@@ -5,9 +5,10 @@ interface IntelligenceFeedProps {
   hubId: string
   sourceId?: string
   hubRole?: string
+  curatorTakeLabel?: string
 }
 
-export default async function IntelligenceFeed({ hubId, sourceId, hubRole }: IntelligenceFeedProps) {
+export default async function IntelligenceFeed({ hubId, sourceId, hubRole, curatorTakeLabel }: IntelligenceFeedProps) {
   const [publications, allPromotions] = await Promise.all([
     getRecentPublications(hubId, sourceId),
     getHubPromotions(hubId),
@@ -30,6 +31,7 @@ export default async function IntelligenceFeed({ hubId, sourceId, hubRole }: Int
       sourceId={sourceId}
       hubRole={hubRole}
       promotions={activePromotions}
+      curatorTakeLabel={curatorTakeLabel}
     />
   )
 }

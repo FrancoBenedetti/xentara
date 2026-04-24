@@ -110,14 +110,15 @@ export function formatPublicationForTelegram(publication: Publication, hub: Hub)
   // Process the summary markdown (already truncated inside)
   const summary = markdownToHTML(publication.summary || '');
   
+  const label = escapeHTML(hub.curator_take_label || "Curator's Take");
   const commentary = publication.curator_commentary 
-    ? `\n\n💬 <b>Curator's Take:</b>\n<i>${escapeHTML(publication.curator_commentary)}</i>`
+    ? `\n\n💬 <b>${label}:</b>\n<i>${escapeHTML(publication.curator_commentary)}</i>`
     : '';
 
   const sourceUrl = publication.source_url ? escapeHTML(publication.source_url) : '';
   const urlLink = sourceUrl ? `\n\n🔗 <a href="${sourceUrl}">Read Full Source</a>` : '';
 
-  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n📰 <b>${title}</b>\n<i>By ${byline}</i>\n\n${summary}\n\n🏷️ ${publication.tags?.map(t => `#${escapeHTML(t.replace(/\s+/g, '_'))}`).join(' · ') || ''}${commentary}${urlLink}`;
+  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n📰 <b>${title}</b>\n<i>By ${byline}</i>\n\n${summary}${commentary}${urlLink}`;
 }
 
 /**
@@ -129,11 +130,10 @@ export function formatPreviewForTelegram(publication: Publication, hub: Hub): st
   const title = escapeHTML(publication.title);
   const byline = escapeHTML(publication.byline || 'Unknown Author');
   
+  const label = escapeHTML(hub.curator_take_label || "Curator's Take");
   const commentary = publication.curator_commentary 
-    ? `\n\n💬 <b>Curator's Take:</b>\n<i>${escapeHTML(publication.curator_commentary)}</i>`
+    ? `\n\n💬 <b>${label}:</b>\n<i>${escapeHTML(publication.curator_commentary)}</i>`
     : '';
 
-  const tags = publication.tags?.slice(0, 3).map(t => `#${escapeHTML(t.replace(/\s+/g, '_'))}`).join(' ') || '';
-
-  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n<b>${title}</b>\n<i>By ${byline}</i>${commentary}\n\n${tags}`;
+  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n<b>${title}</b>\n<i>By ${byline}</i>${commentary}`;
 }

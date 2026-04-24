@@ -11,10 +11,12 @@ interface PublicationCardProps {
   selectable?: boolean
   isSelected?: boolean
   onSelect?: () => void
+  onSelect?: () => void
   hubRole?: string
+  curatorTakeLabel?: string
 }
 
-export default function PublicationCard({ pub, selectable, isSelected, onSelect, hubRole }: PublicationCardProps) {
+export default function PublicationCard({ pub, selectable, isSelected, onSelect, hubRole, curatorTakeLabel }: PublicationCardProps) {
   const [showModal, setShowModal] = useState(false)
 
   const isProcessing = ['raw', 'transcribing', 'summarizing'].includes(pub.status)
@@ -77,7 +79,7 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect,
                try {
                  return (
                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '2px' }}>
-                     {new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                     {new Date(dateStr).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })}
                    </div>
                  );
                } catch (e) {
@@ -121,7 +123,7 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect,
 
       {!isProcessing && pub.curator_commentary && (
         <div className={styles.pubCardInsight}>
-            <p className={styles.pubCardInsightTitle}>Curator Insight</p>
+            <p className={styles.pubCardInsightTitle}>{curatorTakeLabel ?? "Curator's Take"}</p>
             <p className={styles.pubCardInsightText}>{pub.curator_commentary}</p>
         </div>
       )}

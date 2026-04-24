@@ -120,7 +120,14 @@ export const distributePublication = (inngest as any).createFunction(
             }
 
             const row2 = buildReactionButtons(publicationId, context.engagementConfig.reactionsEnabled);
-            const inlineKeyboard = row2.length > 0 ? [row1, row2] : [row1];
+            const tagButtons = (context.publication.tags || []).slice(0, 3).map((tag: string) => ({
+                text: `#${tag}`,
+                switch_inline_query_current_chat: `#${tag}`
+            }));
+            
+            const inlineKeyboard = [row1];
+            if (tagButtons.length > 0) inlineKeyboard.push(tagButtons);
+            if (row2.length > 0) inlineKeyboard.push(row2);
 
             const message = await bot.api.sendMessage(channel.channel_id, formatted.telegramPreview, {
                 parse_mode: 'HTML',
@@ -177,7 +184,14 @@ export const distributePublication = (inngest as any).createFunction(
             }
 
             const row2 = buildReactionButtons(publicationId, context.engagementConfig.reactionsEnabled);
-            const inlineKeyboard = row2.length > 0 ? [row1, row2] : [row1];
+            const tagButtons = (context.publication.tags || []).slice(0, 3).map((tag: string) => ({
+                text: `#${tag}`,
+                switch_inline_query_current_chat: `#${tag}`
+            }));
+            
+            const inlineKeyboard = [row1];
+            if (tagButtons.length > 0) inlineKeyboard.push(tagButtons);
+            if (row2.length > 0) inlineKeyboard.push(row2);
 
             const message = await bot.api.sendMessage(identity.platform_user_id, formatted.telegramPreview, {
                 parse_mode: 'HTML',

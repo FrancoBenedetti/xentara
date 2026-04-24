@@ -265,12 +265,35 @@ bot.callbackQuery(/^sub_(.+)$/, async (ctx) => {
 });
 
 // --- INLINE MODE SEARCH ---
-// Note: To enable this, you must go to @BotFather -> /setinline -> Choose your bot
 bot.on("inline_query", async (ctx) => {
   const query = ctx.inlineQuery.query.trim();
   
   try {
     const adminClient = createAdminClient();
+    
+    if (query.startsWith('#')) {
+      const searchTerm = query.slice(1).trim().toLowerCase();
+      const { data: pubs } = await adminClient
+        .from('publications')
+        .select('id, title, source_url, tags, hubs(name)')
+        .contains('tags', [searchTerm])
+        .eq('status', 'published')
+        .limit(10);
+        
+      const results = (pubs || []).map((pub: any): any => ({
+        type: "article",
+        id: `pub_${pub.id}`,
+        title: pub.title,
+        description: `From ${pub.hubs?.name || 'Hub'}`,
+        url: pub.source_url,
+        input_message_content: {
+          message_text: pub.source_url ? pub.source_url : pub.title,
+          parse_mode: 'HTML'
+        }
+      }));
+      return ctx.answerInlineQuery(results, { cache_time: 60 });
+    }
+
     let supabaseQuery = adminClient.from('hubs').select('id, name, slug');
     
     if (query) {

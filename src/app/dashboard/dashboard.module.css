@@ -1005,6 +1005,10 @@
 .hubDetailAside {
   position: sticky;
   top: 100px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 @media (max-width: 1100px) {
