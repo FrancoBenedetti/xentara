@@ -120,7 +120,13 @@ export const distributePublication = (inngest as any).createFunction(
             }
 
             const row2 = buildReactionButtons(publicationId, context.engagementConfig.reactionsEnabled);
-            const tagButtons = (context.publication.tags || []).slice(0, 3).map((tag: string) => ({
+            
+            // Telegram doesn't allow switch_inline_query_current_chat in channel chats
+            // unless the bot has a known username. So for channels (IDs starting with -100),
+            // we omit the tag buttons or just don't use switch_inline.
+            // Let's just omit tag buttons for channels.
+            const isChannel = channel.channel_id.toString().startsWith('-100');
+            const tagButtons = isChannel ? [] : (context.publication.tags || []).slice(0, 3).map((tag: string) => ({
                 text: `#${tag}`,
                 switch_inline_query_current_chat: `#${tag}`
             }));
