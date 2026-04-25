@@ -611,7 +611,11 @@ export async function reprocessPublication(id: string, url: string) {
   
   await supabase
     .from('publications' as never)
-    .update({ status: 'raw' } as never)
+    .update({ 
+      status: 'raw',
+      raw_content: null,
+      error_message: null
+    } as never)
     .eq('id', id)
 
   const { data: pub } = await supabase
@@ -629,7 +633,8 @@ export async function reprocessPublication(id: string, url: string) {
       data: { 
           publicationId: id, 
           sourceUrl: url,
-          type: sourceType
+          type: sourceType,
+          hasContent: false
       }
     })
   } catch (inngestError) {
