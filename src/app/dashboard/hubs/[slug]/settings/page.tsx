@@ -1,11 +1,9 @@
-import { getHubBySlug } from '@/app/dashboard/actions'
+import { getHubBySlug, getHubSubscriberCount, getHubPromotions } from '@/app/dashboard/actions'
 import { getHubChannels, getDistributionLogs, getEngagementConfig } from '@/app/dashboard/hubs/settings-actions'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import styles from '@/app/dashboard/dashboard.module.css'
-import DistributionSettings from '@/components/dashboard/DistributionSettings'
-import EngagementSettings from '@/components/dashboard/EngagementSettings'
-import ContentSettings from '@/components/dashboard/ContentSettings'
+import HubSettingsTabs from '@/components/dashboard/HubSettingsTabs'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,9 +18,13 @@ export default async function HubSettingsPage({
   const hub = await getHubBySlug(slug)
   if (!hub) notFound()
 
+  const subscriberCount = await getHubSubscriberCount(hub.id)
   const channels = await getHubChannels(hub.id)
   const logs = await getDistributionLogs(hub.id)
   const engagementConfig = await getEngagementConfig(hub.id)
+  const promotions = await getHubPromotions(hub.id)
+
+  const hubData = { ...hub, subscriberCount }
 
   return (
     <div className={styles.pageContainer}>
@@ -35,7 +37,7 @@ export default async function HubSettingsPage({
            </Link>
            <div>
              <h1 className={styles.headerTitle}>{hub.name} Settings</h1>
-             <p className={styles.headerUser}>DISTRIBUTION & CHANNELS</p>
+             <p className={styles.headerUser}>INTELLIGENCE CONTROL</p>
            </div>
         </div>
         <div className={styles.headerRight}>
@@ -46,10 +48,14 @@ export default async function HubSettingsPage({
       </header>
 
       <div className={styles.contentWrapper}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <DistributionSettings hubId={hub.id} initialChannels={channels} logs={logs} />
-          <EngagementSettings hubId={hub.id} initialConfig={engagementConfig} />
-          <ContentSettings hubId={hub.id} initialLanguage={hub.content_language} />
+        <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+          <HubSettingsTabs 
+            hub={hubData as any} 
+            channels={channels} 
+            logs={logs} 
+            promotions={promotions}
+            engagementConfig={engagementConfig}
+          />
         </div>
       </div>
     </div>

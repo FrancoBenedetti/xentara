@@ -6,20 +6,24 @@ import TaxonomyManager from './TaxonomyManager'
 import TeamManager from './TeamManager'
 import DistributionSettings from './DistributionSettings'
 import PromotionsManager from './PromotionsManager'
+import EngagementSettings from './EngagementSettings'
+import ContentSettings from './ContentSettings'
 import type { Hub } from '@/app/dashboard/actions'
 
-type Tab = 'branding' | 'taxonomy' | 'promotions' | 'team' | 'distribution'
+type Tab = 'branding' | 'taxonomy' | 'promotions' | 'team' | 'distribution' | 'engagement' | 'content'
 
 export default function HubSettingsTabs({ 
   hub, 
   channels, 
   logs,
-  promotions
+  promotions,
+  engagementConfig
 }: { 
-  hub: Hub & { subscriberCount: number, role?: string }, 
+  hub: Hub & { subscriberCount: number, role?: string, strictness?: string, content_language?: string }, 
   channels: any[], 
   logs: any[],
-  promotions: any[]
+  promotions: any[],
+  engagementConfig?: any
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('branding')
 
@@ -29,6 +33,8 @@ export default function HubSettingsTabs({
     { id: 'promotions', label: 'Promotions', icon: '📢' },
     { id: 'team', label: 'Team', icon: '👥' },
     { id: 'distribution', label: 'Distribution', icon: '✈️' },
+    { id: 'engagement', label: 'Engagement', icon: '💬' },
+    { id: 'content', label: 'Content', icon: '📝' },
   ]
 
   return (
@@ -41,7 +47,8 @@ export default function HubSettingsTabs({
         padding: '0.4rem', 
         borderRadius: '12px',
         width: 'fit-content',
-        border: '1px solid var(--border)'
+        border: '1px solid var(--border)',
+        flexWrap: 'wrap'
       }}>
         {tabs.map((tab) => (
           <button
@@ -74,6 +81,8 @@ export default function HubSettingsTabs({
         {activeTab === 'promotions' && <PromotionsManager hubId={hub.id} initialPromotions={promotions} />}
         {activeTab === 'team' && <TeamManager hubId={hub.id} userRole={hub.role || 'viewer'} />}
         {activeTab === 'distribution' && <DistributionSettings hubId={hub.id} initialChannels={channels} logs={logs} />}
+        {activeTab === 'engagement' && <EngagementSettings hubId={hub.id} initialConfig={engagementConfig} />}
+        {activeTab === 'content' && <ContentSettings hubId={hub.id} initialLanguage={hub.content_language} />}
       </div>
 
       <style jsx>{`

@@ -114,7 +114,6 @@ export default function DashboardNav({ hubs, isStaff }: DashboardNavProps) {
             <DesktopNavItem href="/dashboard/taxonomy" icon="✦" label="Taxonomy" />
             <DesktopNavItem href="/dashboard/history" icon="◷" label="Publications" />
             <DesktopNavItem href="/dashboard/boards" icon="⬡" label="Boards (Locked)" disabled />
-            <DesktopNavItem href="/dashboard/settings" icon="⚙" label="Settings" />
           </ul>
         </nav>
 
@@ -238,7 +237,6 @@ export default function DashboardNav({ hubs, isStaff }: DashboardNavProps) {
       {/* Mobile Bottom Bar */}
       <nav className={styles.mobileBottomNav}>
         <MobileNavItem href="/dashboard" icon="⬢" label="Hubs" />
-        <MobileNavItem href="/dashboard/settings" icon="⚙" label="Settings" />
         <div 
           onClick={handleSignOut}
           style={{ 
