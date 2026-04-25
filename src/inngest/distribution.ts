@@ -108,7 +108,7 @@ export const distributePublication = (inngest as any).createFunction(
       for (const channel of context.channels) {
         try {
           if (channel.platform === 'telegram') {
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const appUrl = process.env.NEXT_PUBLIC_XENTARA_API_BASE || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const viewerUrl = `${appUrl}/p/${publicationId}`;
             
             const row1 = [
@@ -172,7 +172,7 @@ export const distributePublication = (inngest as any).createFunction(
        
        for (const identity of context.eligibleSubscribers) {
           try {
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const appUrl = process.env.NEXT_PUBLIC_XENTARA_API_BASE || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const viewerUrl = `${appUrl}/p/${publicationId}`;
 
             const row1 = [

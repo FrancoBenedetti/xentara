@@ -2,9 +2,9 @@
 
 Two separate bots are maintained — one for local development, one for production.
 
-| Environment | Bot Token (prefix) | Webhook URL |
-| :---------- | :----------------- | :---------- |
-| **Local Dev** | `8712476847:AAEkCTN...` | ngrok tunnel |
+| Environment    | Bot Token (prefix)      | Webhook URL                           |
+|:-------------- |:----------------------- |:------------------------------------- |
+| **Local Dev**  | `8712476847:AAEkCTN...` | ngrok tunnel                          |
 | **Production** | `8677092013:AAHVZ9X...` | `https://xentara-studio.growthhq.biz` |
 
 ---
@@ -17,7 +17,7 @@ Get a new ngrok link using `ngrok http 3000` and substitute the URL below:
 curl -X POST "https://api.telegram.org/bot8712476847:AAEkCTN_TDT2b306LGSPw4eRzP7Sstuwzk8/setWebhook" \
      -H "Content-Type: application/json" \
      -d '{
-           "url": "https://<ngrok-id>.ngrok-free.app/api/v1/webhooks/telegram",
+           "url": "https://a475-196-210-32-145.ngrok-free.app/api/v1/webhooks/telegram",
            "secret_token": "1325f1b150a909e54b834f867d668a02"
          }'
 ```

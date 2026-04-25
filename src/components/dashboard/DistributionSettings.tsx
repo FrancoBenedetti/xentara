@@ -136,7 +136,15 @@ export default function DistributionSettings({ hubId, initialChannels, logs }: {
                   <td style={{ padding: '1rem 0', fontSize: '0.9rem' }}>{new Date(log.created_at).toLocaleString('en-GB')}</td>
                   <td style={{ padding: '1rem 0', fontSize: '0.9rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.publication?.title || 'Unknown'}</td>
                   <td style={{ padding: '1rem 0', fontSize: '0.9rem', textTransform: 'capitalize' }}>{log.platform}</td>
-                  <td style={{ padding: '1rem 0', fontSize: '0.9rem' }}>{log.channel?.channel_name || log.target_id}</td>
+                  <td style={{ padding: '1rem 0', fontSize: '0.9rem' }}>
+                    {log.channel?.channel_name ? (
+                      log.channel.channel_name
+                    ) : log.target_id?.startsWith('-') ? (
+                      `Removed Channel (${log.target_id})`
+                    ) : (
+                      `Subscriber DM (${log.target_id})`
+                    )}
+                  </td>
                   <td style={{ padding: '1rem 0', fontSize: '0.9rem' }}>
                     <span style={{ 
                       padding: '0.2rem 0.6rem', 
