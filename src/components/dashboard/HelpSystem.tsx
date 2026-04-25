@@ -3,17 +3,20 @@
 import { useState, useEffect } from 'react'
 import styles from '@/app/dashboard/dashboard.module.css'
 
-interface HelpArticle {
+export interface HelpArticle {
   slug: string
   title: string
   content: string
   description: string
 }
 
-export default function HelpSystem() {
+interface HelpSystemProps {
+  articles?: HelpArticle[]
+}
+
+export default function HelpSystem({ articles = [] }: HelpSystemProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null)
-  const [articles, setArticles] = useState<HelpArticle[]>([
     {
       slug: 'taxonomy-guide',
       title: 'Understanding Taxonomy',
@@ -105,7 +108,6 @@ Once you have the Channel ID:
       `
     }
   ])
-
   // Prevent scroll when drawer is open
   useEffect(() => {
     if (isOpen) {
@@ -218,9 +220,9 @@ Once you have the Channel ID:
           >✕</button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', background: 'var(--bg-surface)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: 'var(--bg-surface)' }}>
           {!selectedArticle ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {articles.map(article => (
                 <button
                   key={article.slug}
@@ -229,32 +231,32 @@ Once you have the Channel ID:
                     textAlign: 'left',
                     background: 'var(--bg-input)',
                     border: '1px solid var(--border)',
-                    borderRadius: '1.25rem',
-                    padding: '1.75rem',
+                    borderRadius: '0.75rem',
+                    padding: '1.25rem',
                     cursor: 'pointer',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'all 0.2s ease',
                     outline: 'none',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                     position: 'relative',
                     overflow: 'hidden'
                   }}
                   onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = 'var(--indigo)'
-                      e.currentTarget.style.transform = 'translateY(-4px)'
-                      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.3)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                      e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)'
                   }}
                   onMouseLeave={(e) => {
                       e.currentTarget.style.borderColor = 'var(--border)'
                       e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1)'
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)'
                   }}
                 >
-                  <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{article.title}</h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-main)', opacity: 0.7, lineHeight: 1.6, fontWeight: 500 }}>
+                  <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{article.title}</h3>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)', opacity: 0.8, lineHeight: 1.5, fontWeight: 500 }}>
                     {article.description}
                   </p>
-                  <div style={{ marginTop: '1.25rem', fontSize: '0.75rem', color: 'var(--indigo)', fontWeight: 900, letterSpacing: '0.12em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    OPEN DOCUMENTATION <span style={{ transition: 'transform 0.2s' }}>→</span>
+                  <div style={{ marginTop: '1rem', fontSize: '0.7rem', color: 'var(--indigo)', fontWeight: 800, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    READ MORE <span style={{ transition: 'transform 0.2s' }}>→</span>
                   </div>
                 </button>
               ))}
@@ -285,9 +287,12 @@ Once you have the Channel ID:
                     __html: selectedArticle.content
                         .replace(/^# (.*$)/gm, '<h1>$1</h1>')
                         .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
                         .replace(/^---/gm, '<hr />')
                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                        .replace(/^\- (.*$)/gm, '<li>$1</li>')
+                        .replace(/`(.*?)`/g, '<code>$1</code>')
+                        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+                        .replace(/^[\-\*] (.*$)/gm, '<li>$1</li>')
                 }} />
               </div>
             </div>
@@ -307,13 +312,17 @@ Once you have the Channel ID:
           to { opacity: 1; }
         }
 
-        .help-content h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--text-main); }
-        .help-content h2 { font-size: 1.1rem; margin-top: 2rem; margin-bottom: 1rem; color: var(--text-main); }
-        .help-content p { margin-bottom: 1rem; line-height: 1.7; font-size: 0.9rem; color: var(--text-muted); }
-        .help-content ul { margin-bottom: 1.5rem; padding-left: 1.25rem; }
-        .help-content li { margin-bottom: 0.75rem; line-height: 1.6; font-size: 0.9rem; color: var(--text-muted); }
-        .help-content hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+        .help-content h1 { font-size: 1.25rem; margin-top: 0; margin-bottom: 1rem; color: var(--text-main); font-weight: 800; line-height: 1.3; }
+        .help-content h2 { font-size: 1.05rem; margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--text-main); font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+        .help-content h3 { font-size: 0.95rem; margin-top: 1.25rem; margin-bottom: 0.5rem; color: var(--text-main); font-weight: 600; }
+        .help-content p { margin-bottom: 0.75rem; line-height: 1.6; font-size: 0.85rem; color: var(--text-muted); }
+        .help-content ul { margin-bottom: 1rem; padding-left: 1.25rem; }
+        .help-content li { margin-bottom: 0.5rem; line-height: 1.5; font-size: 0.85rem; color: var(--text-muted); list-style-type: disc; }
+        .help-content hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; opacity: 0.5; }
         .help-content strong { color: var(--text-main); font-weight: 700; }
+        .help-content code { background: var(--bg-input); border: 1px solid var(--border); padding: 0.15rem 0.35rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.8em; color: var(--indigo); }
+        .help-content a { color: var(--indigo); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.2s; }
+        .help-content a:hover { border-color: var(--indigo); }
       `}</style>
     </>
   )
