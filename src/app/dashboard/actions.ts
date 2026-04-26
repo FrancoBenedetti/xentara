@@ -624,7 +624,12 @@ export async function reprocessPublication(id: string, url: string) {
     .eq('id', id)
     .single();
 
-  const sourceType = (pub as unknown as PublicationResult)?.monitored_sources?.type || 'youtube';
+  let sourceType = (pub as unknown as PublicationResult)?.monitored_sources?.type;
+  
+  if (!sourceType) {
+    const { detectUrlType } = await import('@/utils/sourcing/engine')
+    sourceType = detectUrlType(url)
+  }
 
   try {
     const inngest = await getInngest()
@@ -1097,4 +1102,74 @@ export async function getIngestionFailures(page: number = 0): Promise<any[]> {
     .range(from, to)
 
   return data || []
+}
+
+export async function submitAdHocArticle(
+  hubId: string, 
+  url: string, 
+  metadata?: { suggestedBy?: { platform: string; identityId: string; username?: string } }
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // 1. Duplicate check
+  const { data: existing } = await supabase
+    .from('publications')
+    .select('id, status')
+    .eq('source_url', url)
+    .eq('hub_id', hubId)
+    .neq('status', 'purged') // Allow re-submission if purged? Plan said same hub. Let's be safe.
+    .maybeSingle()
+  
+  if (existing) {
+    throw new Error(`This URL has already been submitted (status: ${existing.status})`)
+  }
+
+  // 2. Detect type
+  const { detectUrlType } = await import('@/utils/sourcing/engine')
+  const type = detectUrlType(url)
+
+  // 3. Build intelligence_metadata for attribution
+  const intelligence_metadata: Record<string, any> = {
+    origin: metadata?.suggestedBy ? 'suggestion' : 'adhoc',
+    submitted_at: new Date().toISOString()
+  }
+  if (metadata?.suggestedBy) {
+    intelligence_metadata.suggested_by = metadata.suggestedBy
+  } else {
+    intelligence_metadata.submitted_by_user_id = user.id
+  }
+
+  // 4. Create publication
+  const { data: pub, error } = await (supabase.from('publications' as never) as any).insert({
+    hub_id: hubId,
+    source_id: null,
+    title: url,  // Temporary — pipeline will extract real title
+    source_url: url,
+    status: 'raw',
+    intelligence_metadata
+  } as never).select('id').single()
+
+  if (error) throw new Error(error.message)
+
+  // 5. Trigger intelligence pipeline
+  try {
+    const inngest = await getInngest()
+    await inngest.send({
+      name: 'xentara/publication.detected',
+      data: {
+        publicationId: (pub as any).id,
+        sourceUrl: url,
+        type,
+        hubId,
+        hasContent: false
+      }
+    })
+  } catch (inngestError) {
+    console.error("Inngest trigger failed for ad-hoc submission:", inngestError);
+  }
+
+  revalidatePath('/dashboard')
+  return { id: (pub as any).id, type }
 }

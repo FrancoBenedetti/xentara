@@ -70,7 +70,26 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect,
            )}
            <div style={{ display: 'flex', flexDirection: 'column' }}>
              <div className={styles.pubCardSource}>
-                {pub.monitored_sources?.name || 'MEDIA ITEM'}
+                {(() => {
+                  const intelligence_metadata = (pub as any).intelligence_metadata;
+                  const origin = intelligence_metadata?.origin;
+                  if (origin === 'suggestion') {
+                    const suggester = intelligence_metadata?.suggested_by?.username;
+                    return (
+                      <span style={{ color: 'var(--indigo)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        📨 SUGGESTED BY {suggester ? `@${suggester.replace(/^@/, '')}` : 'SUBSCRIBER'}
+                      </span>
+                    );
+                  }
+                  if (origin === 'adhoc') {
+                    return (
+                      <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        📎 MANUAL SUBMISSION
+                      </span>
+                    );
+                  }
+                  return pub.monitored_sources?.name || 'MEDIA ITEM';
+                })()}
              </div>
              {(() => {
                const dateStr = pub.metadata?.date || pub.metadata?.pubDate || pub.published_at || pub.created_at;

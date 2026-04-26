@@ -118,7 +118,12 @@ export function formatPublicationForTelegram(publication: Publication, hub: Hub)
   const sourceUrl = publication.source_url ? escapeHTML(publication.source_url) : '';
   const urlLink = sourceUrl ? `\n\n🔗 <a href="${sourceUrl}">Read Full Source</a>` : '';
 
-  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n📰 <b>${title}</b>\n<i>By ${byline}</i>\n\n${summary}${commentary}${urlLink}`;
+  const metadata = (publication as any).intelligence_metadata;
+  const attribution = metadata?.origin === 'suggestion' 
+    ? `\n\n📨 Suggested by @${escapeHTML(metadata.suggested_by?.username?.replace(/^@/, '') || 'Subscriber')}`
+    : '';
+
+  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n📰 <b>${title}</b>\n<i>By ${byline}</i>\n\n${summary}${commentary}${urlLink}${attribution}`;
 }
 
 /**
@@ -135,5 +140,10 @@ export function formatPreviewForTelegram(publication: Publication, hub: Hub): st
     ? `\n\n💬 <b>${label}:</b>\n<i>${escapeHTML(publication.curator_commentary)}</i>`
     : '';
 
-  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n<b>${title}</b>\n<i>By ${byline}</i>${commentary}`;
+  const metadata = (publication as any).intelligence_metadata;
+  const attribution = metadata?.origin === 'suggestion' 
+    ? `\n\n📨 Suggested by @${escapeHTML(metadata.suggested_by?.username?.replace(/^@/, '') || 'Subscriber')}`
+    : '';
+
+  return `🧠 <b>${hubName}</b>\n━━━━━━━━━━\n<b>${title}</b>\n<i>By ${byline}</i>${commentary}${attribution}`;
 }

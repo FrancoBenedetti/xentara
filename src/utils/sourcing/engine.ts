@@ -5,6 +5,18 @@ import { inngest } from '@/inngest/client';
 import { createServiceClient } from '@/utils/supabase/service';
 
 /**
+ * URL Type Detection
+ */
+export function detectUrlType(url: string): 'youtube' | 'web' {
+    try {
+        const parsed = new URL(url);
+        const ytHosts = ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'];
+        if (ytHosts.includes(parsed.hostname)) return 'youtube';
+    } catch {}
+    return 'web';
+}
+
+/**
  * DISCOVERY AGENT (#1): Scans sources for new content
  * Now processes up to 10 new items per run.
  */
@@ -177,7 +189,7 @@ export async function ingestContent(url: string, type: string) {
         };
     }
     
-    if (type === 'rss' || type === 'rsshub') {
+    if (type === 'rss' || type === 'rsshub' || type === 'web') {
         const feedData = await fetchRSSMetadata(url);
         return {
             title: feedData.title,

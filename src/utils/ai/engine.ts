@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createServiceClient } from '@/utils/supabase/service'
 
 /**
  * AI Engine to summarize transcripts with various providers.
@@ -42,7 +42,7 @@ async function summarizeGemini(transcript: string, title: string, contentLanguag
   const timeoutId = setTimeout(() => controller.abort(), 60000); // Gemini can take longer for large contexts
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -131,7 +131,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
     }
   }
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   
   // 1. Fetch Hub Taxonomy & Strictness
   const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
@@ -214,7 +214,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
   }
 }
 async function predictTasteGemini(summary: string, title: string, hubId: string, contentLanguage?: string): Promise<TasteAnalysis> {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
     const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true);
     
@@ -254,7 +254,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -292,7 +292,7 @@ export async function analyzeSentiment(comment: string): Promise<number> {
       Return ONLY a float between -1.0 (very negative) and 1.0 (very positive). 
       Comment: "${comment.substring(0, 2000)}"`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })

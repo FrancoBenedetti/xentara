@@ -5,6 +5,7 @@ import { Publication, HubPromotion, purgePublications, getRecentPublications } f
 import PublicationCard from './PublicationCard'
 import PromotionCard from './PromotionCard'
 import styles from '@/app/dashboard/dashboard.module.css'
+import SubmitArticleForm from './SubmitArticleForm'
 
 interface IntelligenceFeedClientProps {
   initialPublications: Publication[]
@@ -27,6 +28,7 @@ export default function IntelligenceFeedClient({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isPurging, setIsPurging] = useState(false)
   const [suppressedPromoIds, setSuppressedPromoIds] = useState<Set<string>>(new Set())
+  const [showSubmitForm, setShowSubmitForm] = useState(false)
   
   // Pagination State
   const [page, setPage] = useState(0)
@@ -147,52 +149,85 @@ export default function IntelligenceFeedClient({
 
   return (
     <div className={styles.feedContainer}>
+      {(hubRole === 'owner' || hubRole === 'editor') && (
+        <div style={{ marginBottom: showSubmitForm ? '0' : '1rem' }}>
+          {showSubmitForm && (
+            <SubmitArticleForm hubId={hubId} onSuccess={() => {}} />
+          )}
+        </div>
+      )}
+
       <div className={styles.feedHeader}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {unPublishedPublications.length > 0 && (
-                <input 
-                    type="checkbox" 
-                    checked={allSelected}
-                    onChange={toggleSelectAll}
-                    title="Select all un-published"
-                    style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--indigo)' }}
-                />
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-                <h4 className={styles.feedTitle}>
-                    {sourceId ? 'Source Intelligence' : 'Unified Collective Feed'}
-                    {sourceId && <span className={styles.feedFilterBadge}> (FILTERED)</span>}
-                </h4>
-                <div className={styles.feedMeta}>
-                    <span className={styles.feedStatusActive}>{readyCount} READY</span>
-                    <span style={{ opacity: 0.5 }}>•</span>
-                    <span>{publications.length} TOTAL</span>
-                </div>
+          {unPublishedPublications.length > 0 && (
+            <input 
+              type="checkbox" 
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              title="Select all un-published"
+              style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--indigo)' }}
+            />
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+            <h4 className={styles.feedTitle}>
+              {sourceId ? 'Source Intelligence' : 'Unified Collective Feed'}
+              {sourceId && <span className={styles.feedFilterBadge}> (FILTERED)</span>}
+            </h4>
+            <div className={styles.feedMeta}>
+              <span className={styles.feedStatusActive}>{readyCount} READY</span>
+              <span style={{ opacity: 0.5 }}>•</span>
+              <span>{publications.length} TOTAL</span>
             </div>
+          </div>
         </div>
         
-        {selectedIds.length > 0 && (
-          <button 
-            onClick={handleBulkPurge}
-            disabled={isPurging}
-            style={{ 
-              padding: '0.5rem 1rem', 
-              background: '#ef4444', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '6px', 
-              fontSize: '0.75rem', 
-              fontWeight: 900,
-              cursor: 'pointer',
-              boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-          >
-            🗑️ PURGE {selectedIds.length}
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {(hubRole === 'owner' || hubRole === 'editor') && (
+            <button 
+              onClick={() => setShowSubmitForm(!showSubmitForm)}
+              style={{
+                background: showSubmitForm ? 'rgba(255, 255, 255, 0.1)' : 'var(--indigo)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: showSubmitForm ? 'none' : '0 4px 6px -1px rgba(99, 102, 241, 0.3)'
+              }}
+              title="Submit ad-hoc article"
+            >
+              <span style={{ fontSize: '1.2rem', lineHeight: 1, transform: showSubmitForm ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s ease', display: 'inline-block' }}>+</span>
+            </button>
+          )}
+          
+          {selectedIds.length > 0 && (
+            <button 
+              onClick={handleBulkPurge}
+              disabled={isPurging}
+              style={{ 
+                padding: '0.5rem 1rem', 
+                background: '#ef4444', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                fontSize: '0.75rem', 
+                fontWeight: 900,
+                cursor: 'pointer',
+                boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              🗑️ PURGE {selectedIds.length}
+            </button>
+          )}
+        </div>
       </div>
 
       {publications.length === 0 ? (

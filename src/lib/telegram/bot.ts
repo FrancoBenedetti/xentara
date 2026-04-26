@@ -38,6 +38,7 @@ bot.command('start', async (ctx) => {
         "Once linked, you can subscribe to hubs to receive intelligence feeds.") +
     "\n\n<b>Commands:</b>\n" +
     "/link <code>&lt;token&gt;</code> — Link your account\n" +
+    "/suggest <code>&lt;hub&gt;</code> <code>&lt;url&gt;</code> — Suggest an article\n" +
     "/subscribe <code>&lt;hub&gt;</code> — Subscribe to hub feeds\n" +
     "/myhubs — Manage your subscriptions\n" +
     "/help — Show instructions";
@@ -438,11 +439,117 @@ bot.command('subscribe', async (ctx) => {
 
     if (subError) throw subError;
 
-    return ctx.reply(`✅ Successfully subscribed to <b>${escapeHTML(hub.name)}</b>!\n\nYou will now receive updates based on your notification preferences.`, { parse_mode: 'HTML' });
+    return ctx.reply('✅ Successfully subscribed to <b>${escapeHTML(hub.name)}</b>!\n\nYou will now receive updates based on your notification preferences.', { parse_mode: 'HTML' });
 
   } catch (error) {
     console.error('Subscription error:', error);
     return ctx.reply('❌ An error occurred while subscribing. Please try again later.');
+  }
+});
+
+// /suggest <hub-slug> <url> - Suggest an article to a hub
+bot.command('suggest', async (ctx) => {
+  const text = ctx.match?.trim();
+  if (!text) {
+    return ctx.reply('Usage: `/suggest hub-slug https://example.com/article`', { parse_mode: 'Markdown' });
+  }
+
+  const parts = text.split(/\s+/);
+  if (parts.length < 2) {
+    return ctx.reply('Usage: `/suggest hub-slug https://example.com/article`', { parse_mode: 'Markdown' });
+  }
+
+  const [slug, url] = parts;
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    const adminClient = createAdminClient();
+    
+    // 1. Verify user identity and link status
+    const { data: identity } = await adminClient
+      .from('messenger_identities')
+      .select('id, consumer_id, platform_username')
+      .eq('platform', 'telegram')
+      .eq('platform_user_id', telegramId.toString())
+      .single();
+
+    if (!identity || !identity.consumer_id) {
+       return ctx.reply('⚠️ You must link your Xentara account first before you can suggest articles.\n\nUse `/link <code>` to get started.', { parse_mode: 'Markdown' });
+    }
+
+    // 2. Find the hub
+    const { data: hub } = await adminClient
+      .from('hubs')
+      .select('id, name')
+      .eq('slug', slug)
+      .single();
+
+    if (!hub) {
+      return ctx.reply(`❌ Could not find a hub with the slug "${slug}".`);
+    }
+
+    // 3. Duplicate check
+    const { data: existing } = await adminClient
+      .from('publications')
+      .select('id')
+      .eq('source_url', url)
+      .eq('hub_id', hub.id)
+      .neq('status', 'purged')
+      .maybeSingle();
+
+    if (existing) {
+      return ctx.reply('ℹ️ This article has already been submitted to this hub.');
+    }
+
+    // 4. Create publication with attribution
+    const { data: pub, error: insertError } = await adminClient
+      .from('publications')
+      .insert({
+        hub_id: hub.id,
+        source_id: null,
+        title: url,
+        source_url: url,
+        status: 'raw',
+        intelligence_metadata: {
+          origin: 'suggestion',
+          submitted_at: new Date().toISOString(),
+          suggested_by: {
+            platform: 'telegram',
+            identity_id: identity.id,
+            username: ctx.from?.username || identity.platform_username || 'anonymous'
+          }
+        }
+      } as any)
+      .select('id')
+      .single();
+
+    if (insertError) throw insertError;
+
+    // 5. Trigger intelligence pipeline
+    const { detectUrlType } = await import('@/utils/sourcing/engine');
+    const type = detectUrlType(url);
+
+    try {
+        await inngest.send({
+            name: 'xentara/publication.detected',
+            data: {
+                publicationId: (pub as any).id,
+                sourceUrl: url,
+                type,
+                hubId: hub.id,
+                hasContent: false
+            }
+        });
+    } catch (e) {
+        console.warn('Bot: Inngest trigger failed for suggestion:', e);
+    }
+
+    return ctx.reply(`✅ Successfully suggested to <b>${escapeHTML(hub.name)}</b>!\n\nThe curators will review it soon.`, { parse_mode: 'HTML' });
+
+  } catch (error) {
+    console.error('Suggestion error:', error);
+    return ctx.reply('❌ An error occurred while processing your suggestion.');
   }
 });
 
@@ -519,6 +626,7 @@ bot.command('help', async (ctx) => {
     "3. Use /link <code>&lt;your-code&gt;</code> here\n\n" +
     "<b>Commands:</b>\n" +
     "/link — Link your profile\n" +
+    "/suggest — Suggest an article (e.g. <code>/suggest tech https://...</code>)\n" +
     "/subscribe — Follow a hub (e.g. <code>/subscribe technology</code>)\n" +
     "/myhubs — List your active feeds\n" +
     "/chatid — Technical chat info\n\n" +
