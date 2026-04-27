@@ -137,7 +137,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
   const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
   const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true);
   
-  const taxonomyDesc = tags?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
+  const taxonomyDesc = (tags as any[])?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
   const isStrict = hub?.strictness === 'strict';
 
   const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The refined_title, byline and synopsis MUST be written in ${contentLanguage}.` : '';
@@ -218,7 +218,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
     const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
     const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true);
     
-    const taxonomyDesc = tags?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
+    const taxonomyDesc = (tags as any[])?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
     const isStrict = hub?.strictness === 'strict';
     const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The refined_title, byline and synopsis MUST be written in ${contentLanguage}.` : '';
 
