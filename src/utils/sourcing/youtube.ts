@@ -97,61 +97,78 @@ export async function fetchLatestVideosFromChannel(channelUrl: string) {
 }
 
 export async function fetchYoutubeMetadata(url: string) {
-  try {
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('/').pop();
-    if (!videoId) throw new Error("ID extraction failed");
-
-    const info = await ytdl.getBasicInfo(url, {
-        requestOptions: {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-            }
-        }
-    });
-    
-    // Filter 2: Duration-based (Shorts are < 60s)
-    const duration = parseInt(info.videoDetails.lengthSeconds || "0");
-    if (duration > 0 && duration < 60) {
-        throw new Error("REJECTED: Video identified as Short-form media (< 60s).");
+    if (!videoId) {
+        return {
+            title: "Youtube Entry (" + url + ")",
+            content: "",
+            metadata: { has_transcript: false, original_url: url, sourceType: 'youtube', status: 'limited' }
+        };
     }
 
+    // --- Attempt 1: Full metadata via ytdl (may be blocked by YouTube bot detection) ---
+    let videoDetails: any = null;
+    try {
+        const info = await ytdl.getBasicInfo(url, {
+            requestOptions: {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+                }
+            }
+        });
+        videoDetails = info.videoDetails;
+
+        // Filter: Duration-based (Shorts are < 60s)
+        const duration = parseInt(videoDetails.lengthSeconds || "0");
+        if (duration > 0 && duration < 60) {
+            throw new Error("REJECTED: Video identified as Short-form media (< 60s).");
+        }
+    } catch (ytdlError: any) {
+        // Re-throw explicit rejections (Shorts) so the pipeline can auto-purge them
+        if (ytdlError.message?.startsWith("REJECTED:")) throw ytdlError;
+        // Otherwise ytdl is just blocked — log and continue to transcript attempt
+        console.warn(`ytdl.getBasicInfo blocked for ${videoId}: ${ytdlError.message}`);
+    }
+
+    // --- Attempt 2: Transcript via YoutubeTranscript (uses timedtext API, more reliable) ---
     let transcript = "";
     let hasTranscript = false;
     try {
         const transcriptData = await YoutubeTranscript.fetchTranscript(videoId);
         transcript = transcriptData.map(item => item.text).join(" ");
-        hasTranscript = transcript.length > 50; 
-    } catch (e: any) {
-        console.warn(`Transcript extraction failed for ${videoId}: ${e.message}`);
-        
-        // Fallback to description, but only if it's substantial
-        const description = info.videoDetails.description || "";
+        hasTranscript = transcript.length > 50;
+    } catch (transcriptError: any) {
+        console.warn(`Transcript extraction failed for ${videoId}: ${transcriptError.message}`);
+
+        // Fallback: use video description from ytdl if we have it
+        const description = videoDetails?.description || "";
         if (description.length > 200) {
             transcript = description;
             hasTranscript = true;
-        } else {
-            throw new Error(`TRANSCRIPT FAILURE: No usable captions found and description too short for analysis.`);
         }
     }
 
+    // If we got at least a transcript (even without ytdl metadata), return what we have
+    if (hasTranscript) {
+        return {
+            title: videoDetails?.title || `YouTube Video (${videoId})`,
+            content: transcript,
+            metadata: {
+                has_transcript: true,
+                thumbnail: videoDetails?.thumbnails?.[0]?.url,
+                description: videoDetails?.description,
+                publishDate: videoDetails?.publishDate,
+                author: videoDetails?.author?.name,
+                sourceType: 'youtube'
+            }
+        };
+    }
+
+    // Both ytdl and transcript failed — return degraded fallback
+    console.error(`YouTube Ingestion: No usable content for ${videoId} (ytdl blocked + no transcript)`);
     return {
-      title: info.videoDetails.title,
-      content: transcript,
-      metadata: {
-        has_transcript: hasTranscript,
-        thumbnail: info.videoDetails.thumbnails[0]?.url,
-        description: info.videoDetails.description,
-        publishDate: info.videoDetails.publishDate,
-        author: info.videoDetails.author?.name,
-        sourceType: 'youtube'
-      }
-    };
-  } catch (error: any) {
-    console.error("YouTube Ingestion Blocked:", error.message);
-    return {
-        title: "Youtube Entry (" + url + ")",
-        content: "Draft content: High volume processing may have temporarily limited ingestion data.",
+        title: videoDetails?.title || `YouTube Video (${videoId})`,
+        content: "",
         metadata: { has_transcript: false, original_url: url, sourceType: 'youtube', status: 'limited' }
     };
-  }
 }

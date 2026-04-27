@@ -103,8 +103,9 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             return await ingestContent(sourceUrl, type || 'youtube');
         });
 
-        const transcript = rawData.content || "No content found.";
-        const hasTranscript = rawData.metadata?.has_transcript || ['rss', 'rsshub'].includes(rawData.metadata?.sourceType);
+        const transcript = rawData.content || "";
+        // 'web' articles always have text content; rss/rsshub pre-load it. YouTube sets has_transcript explicitly.
+        const hasTranscript = rawData.metadata?.has_transcript || ['rss', 'rsshub', 'web'].includes(rawData.metadata?.sourceType);
 
         if (hasTranscript && transcript.length > 50) {
             // 2. CREATIVE AGENT: SUMMARIZATION
@@ -246,9 +247,13 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             return { status: "processed" };
         }
         
+        const noTranscriptMsg = rawData.metadata?.sourceType === 'youtube'
+            ? "YouTube video has no accessible captions/transcript. This can happen when captions are disabled, the video is region-locked, or YouTube is blocking automated access. Try again later or submit a different video."
+            : "Media ingestion returned no usable transcript or text.";
+
         await (supabase.from('publications') as any).update({ 
             status: 'failed', 
-            error_message: "Media ingestion returned no usable transcript or text."
+            error_message: noTranscriptMsg
         }).eq('id', publicationId).throwOnError();
 
         return { status: "no_transcript" };
