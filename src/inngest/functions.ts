@@ -114,9 +114,12 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                 await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId).throwOnError();
                 try {
                     return await summarizeWithAI(transcript, rawData.title, rawData.metadata, contentLanguage);
-                } catch (e) {
+                } catch (e: any) {
                     console.error("[PIPELINE] AI Summarization Error:", e);
-                    // Return local fallback immediately instead of failing the step
+                    if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
+                        throw e; // Throw to trigger Inngest retry for rate limits and server errors
+                    }
+                    // Return local fallback immediately instead of failing the step for other errors (e.g. 400)
                     return transcript.substring(0, 1000) + "... [Note: AI Neural Link encountered an error, showing raw excerpt]";
                 }
             });
@@ -126,8 +129,11 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             const analysis = await step.run("predict-taste-and-taxonomy", async () => {
                 try {
                     return await predictTaste(summary, rawData.title, pub.hub_id, contentLanguage);
-                } catch (e) {
+                } catch (e: any) {
                     console.error("[PIPELINE] AI Taste Prediction Error:", e);
+                    if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
+                        throw e; // Throw to trigger Inngest retry
+                    }
                     return { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] };
                 }
             });
