@@ -13,9 +13,11 @@ interface PublicationCardProps {
   onSelect?: () => void
   hubRole?: string
   curatorTakeLabel?: string
+  /** BCP-47 or short language code from hub settings */
+  hubLanguage?: string
 }
 
-export default function PublicationCard({ pub, selectable, isSelected, onSelect, hubRole, curatorTakeLabel }: PublicationCardProps) {
+export default function PublicationCard({ pub, selectable, isSelected, onSelect, hubRole, curatorTakeLabel, hubLanguage }: PublicationCardProps) {
   const [showModal, setShowModal] = useState(false)
 
   const isProcessing = ['raw', 'transcribing', 'summarizing'].includes(pub.status)
@@ -183,7 +185,7 @@ export default function PublicationCard({ pub, selectable, isSelected, onSelect,
       )}
 
       {showModal && (
-        <RepublishModal publication={pub} onClose={() => setShowModal(false)} hubRole={hubRole} />
+        <RepublishModal publication={pub} onClose={() => setShowModal(false)} hubRole={hubRole} hubLanguage={hubLanguage} />
       )}
     </div>
   )

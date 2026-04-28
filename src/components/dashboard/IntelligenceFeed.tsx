@@ -6,9 +6,11 @@ interface IntelligenceFeedProps {
   sourceId?: string
   hubRole?: string
   curatorTakeLabel?: string
+  /** BCP-47 or short language code from hub settings */
+  hubLanguage?: string
 }
 
-export default async function IntelligenceFeed({ hubId, sourceId, hubRole, curatorTakeLabel }: IntelligenceFeedProps) {
+export default async function IntelligenceFeed({ hubId, sourceId, hubRole, curatorTakeLabel, hubLanguage }: IntelligenceFeedProps) {
   const [publications, allPromotions] = await Promise.all([
     getRecentPublications(hubId, sourceId),
     getHubPromotions(hubId),
@@ -32,6 +34,7 @@ export default async function IntelligenceFeed({ hubId, sourceId, hubRole, curat
       hubRole={hubRole}
       promotions={activePromotions}
       curatorTakeLabel={curatorTakeLabel}
+      hubLanguage={hubLanguage}
     />
   )
 }

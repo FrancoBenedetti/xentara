@@ -68,11 +68,75 @@ interface Props {
   publication: Publication;
   onClose: () => void;
   hubRole?: string;
+  /** BCP-47 or short language code from the hub, e.g. 'en-GB', 'af', 'nl' */
+  hubLanguage?: string;
 }
 
-export default function RepublishModal({ publication, onClose, hubRole }: Props) {
+// Small clipboard copy button used next to every editable field label.
+// When `instruction` is provided it is prepended to the copied text:
+//   "<instruction>\n\n<value>"
+function CopyBtn({
+  value,
+  fieldKey,
+  copiedField,
+  setCopiedField,
+  instruction,
+}: {
+  value: string;
+  fieldKey: string;
+  copiedField: string | null;
+  setCopiedField: (k: string | null) => void;
+  /** Optional instruction string prepended to copied text */
+  instruction?: string;
+}) {
+  const copied = copiedField === fieldKey
+  const handleCopy = async () => {
+    try {
+      const payload = instruction ? `${instruction}\n\n${value}` : value
+      await navigator.clipboard.writeText(payload)
+      setCopiedField(fieldKey)
+      setTimeout(() => setCopiedField(null), 1800)
+    } catch { /* silent */ }
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title="Copy to clipboard"
+      style={{
+        background: 'none', border: 'none', cursor: 'pointer', padding: '0.15rem 0.3rem',
+        borderRadius: '0.3rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+        color: copied ? '#22c55e' : 'var(--text-muted)',
+        fontSize: '0.65rem', fontWeight: 800, transition: 'color 0.2s',
+        opacity: copied ? 1 : 0.6,
+      }}
+      onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+      onMouseLeave={e => { if (!copied) e.currentTarget.style.opacity = '0.6' }}
+    >
+      {copied ? (
+        <>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          COPIED
+        </>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
+export default function RepublishModal({ publication, onClose, hubRole, hubLanguage }: Props) {
+  // Build the default copy instruction from the hub's content language.
+  // Falls back to English if no language is set.
+  const copyInstruction = `Translate etc this message into good ${hubLanguage || 'English'}:`
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'markdown' | 'html'>('markdown')
+  const [copiedField, setCopiedField] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: publication.title,
     byline: publication.byline || '',
@@ -171,7 +235,10 @@ export default function RepublishModal({ publication, onClose, hubRole }: Props)
         <form onSubmit={handleSubmit} style={{ padding: '2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
           <div>
-            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Refined Title</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Refined Title</label>
+              <CopyBtn value={formData.title} fieldKey="title" copiedField={copiedField} setCopiedField={setCopiedField} instruction={copyInstruction} />
+            </div>
             <input 
               type="text" 
               value={formData.title} 
@@ -181,7 +248,10 @@ export default function RepublishModal({ publication, onClose, hubRole }: Props)
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Refined Byline (One-sentence punch)</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Refined Byline (One-sentence punch)</label>
+              <CopyBtn value={formData.byline} fieldKey="byline" copiedField={copiedField} setCopiedField={setCopiedField} instruction={copyInstruction} />
+            </div>
             <textarea 
               value={formData.byline} 
               onChange={e => setFormData({...formData, byline: e.target.value})}
@@ -191,7 +261,10 @@ export default function RepublishModal({ publication, onClose, hubRole }: Props)
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Refined Synopsis (AI Generated)</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Refined Synopsis (AI Generated)</label>
+              <CopyBtn value={formData.synopsis} fieldKey="synopsis" copiedField={copiedField} setCopiedField={setCopiedField} instruction={copyInstruction} />
+            </div>
             <textarea 
               value={formData.synopsis} 
               onChange={e => setFormData({...formData, synopsis: e.target.value})}
@@ -304,7 +377,10 @@ export default function RepublishModal({ publication, onClose, hubRole }: Props)
           </div>
 
           <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--indigo)' }}>
-            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 900, color: 'var(--indigo)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Curator Insight (Human Added Value)</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--indigo)', textTransform: 'uppercase' }}>Curator Insight (Human Added Value)</label>
+              <CopyBtn value={formData.curator_commentary} fieldKey="curator" copiedField={copiedField} setCopiedField={setCopiedField} instruction={copyInstruction} />
+            </div>
             <textarea 
               value={formData.curator_commentary} 
               onChange={e => setFormData({...formData, curator_commentary: e.target.value})}
@@ -317,39 +393,42 @@ export default function RepublishModal({ publication, onClose, hubRole }: Props)
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <label style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Modern Markdown Summary</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('markdown')}
-                  style={{
-                    padding: '0.2rem 0.5rem',
-                    fontSize: '0.7rem',
-                    fontWeight: 800,
-                    borderRadius: '4px',
-                    border: '1px solid ' + (viewMode === 'markdown' ? 'var(--indigo)' : 'var(--border)'),
-                    background: viewMode === 'markdown' ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                    color: viewMode === 'markdown' ? 'var(--indigo)' : 'var(--text-muted)',
-                    cursor: 'pointer'
-                  }}
-                >
-                  EDIT
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('html')}
-                  style={{
-                    padding: '0.2rem 0.5rem',
-                    fontSize: '0.7rem',
-                    fontWeight: 800,
-                    borderRadius: '4px',
-                    border: '1px solid ' + (viewMode === 'html' ? 'var(--indigo)' : 'var(--border)'),
-                    background: viewMode === 'html' ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-                    color: viewMode === 'html' ? 'var(--indigo)' : 'var(--text-muted)',
-                    cursor: 'pointer'
-                  }}
-                >
-                  PREVIEW
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <CopyBtn value={formData.summary} fieldKey="summary" copiedField={copiedField} setCopiedField={setCopiedField} instruction={copyInstruction} />
+                <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '0.25rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('markdown')}
+                    style={{
+                      padding: '0.2rem 0.5rem',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      borderRadius: '4px',
+                      border: '1px solid ' + (viewMode === 'markdown' ? 'var(--indigo)' : 'var(--border)'),
+                      background: viewMode === 'markdown' ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                      color: viewMode === 'markdown' ? 'var(--indigo)' : 'var(--text-muted)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    EDIT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('html')}
+                    style={{
+                      padding: '0.2rem 0.5rem',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      borderRadius: '4px',
+                      border: '1px solid ' + (viewMode === 'html' ? 'var(--indigo)' : 'var(--border)'),
+                      background: viewMode === 'html' ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                      color: viewMode === 'html' ? 'var(--indigo)' : 'var(--text-muted)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    PREVIEW
+                  </button>
+                </div>
               </div>
             </div>
             {viewMode === 'markdown' ? (

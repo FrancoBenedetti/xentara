@@ -14,6 +14,8 @@ interface IntelligenceFeedClientProps {
   hubRole?: string
   promotions?: HubPromotion[]
   curatorTakeLabel?: string
+  /** BCP-47 or short language code from hub settings */
+  hubLanguage?: string
 }
 
 export default function IntelligenceFeedClient({ 
@@ -22,7 +24,8 @@ export default function IntelligenceFeedClient({
   sourceId,
   hubRole,
   promotions = [],
-  curatorTakeLabel
+  curatorTakeLabel,
+  hubLanguage
 }: IntelligenceFeedClientProps) {
   const [publications, setPublications] = useState<Publication[]>(initialPublications)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -122,6 +125,7 @@ export default function IntelligenceFeedClient({
             onSelect={() => toggleSelection(pub.id)}
             hubRole={hubRole}
             curatorTakeLabel={curatorTakeLabel}
+            hubLanguage={hubLanguage}
           />
         </div>
       )
