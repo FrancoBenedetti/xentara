@@ -77,6 +77,9 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
     setPreviewItems([])
     try {
       const data = await previewRSSHubRouteAction(routePath)
+      if (data?.error) {
+        throw new Error(data.error)
+      }
       setPreviewItems(data.items?.slice(0, 3) || [])
     } catch (e: any) {
       setError(e.message || 'Preview failed')
@@ -114,7 +117,10 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
     const access = formData.get('access_notes') as string
     startTransition(async () => {
       try {
-        await createRouteRequest(hubId, url, instructions, access)
+        const res = await createRouteRequest(hubId, url, instructions, access)
+        if (res?.error) {
+          throw new Error(res.error)
+        }
         onClose()
       } catch (err: any) {
         setError(err.message || 'Failed to request route')
@@ -370,7 +376,10 @@ export default function SourceFormPanel({ hubId, source, onClose }: SourceFormPa
                       No match found.{' '}
                       <span
                         style={{ color: 'var(--indigo)', cursor: 'pointer', textDecoration: 'underline' }}
-                        onClick={() => setShowRequestForm(true)}
+                        onClick={() => {
+                          setError(null)
+                          setShowRequestForm(true)
+                        }}
                       >
                         Request a new route?
                       </span>

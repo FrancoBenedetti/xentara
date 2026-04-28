@@ -800,7 +800,7 @@ export async function setPublicationTagSuppression(linkIds: string[], is_suppres
 export async function createRouteRequest(hubId: string | null, targetUrl: string, instructions?: string, accessNotes?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  if (!user) return { error: 'Not authenticated' }
 
   const { error } = await supabase
     .from('route_requests' as never)
@@ -813,7 +813,7 @@ export async function createRouteRequest(hubId: string | null, targetUrl: string
       status: 'pending'
     } as never)
 
-  if (error) throw new Error(error.message)
+  if (error) return { error: error.message }
   revalidatePath('/dashboard')
   return { success: true }
 }
@@ -884,13 +884,21 @@ export async function searchRSSHubRoutesAction(searchTerm: string) {
 
 export async function previewRSSHubRouteAction(routePath: string) {
   const { RSSHUB_BASE_URL } = await import('@/utils/sourcing/rsshub')
-  const origin = RSSHUB_BASE_URL.replace(/\/$/, "");
-  const base = routePath.startsWith("/") ? routePath : `/${routePath}`;
-  const url = `${origin}${base}`;
   
-  const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}format=json`, { cache: 'no-store' })
-  if (!res.ok) throw new Error("Could not load preview")
-  return await res.json()
+  let url = routePath;
+  if (!routePath.startsWith('http')) {
+    const origin = RSSHUB_BASE_URL.replace(/\/$/, "");
+    const base = routePath.startsWith("/") ? routePath : `/${routePath}`;
+    url = `${origin}${base}`;
+  }
+  
+  try {
+    const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}format=json`, { cache: 'no-store' })
+    if (!res.ok) return { error: `Preview failed with status ${res.status}` }
+    return await res.json()
+  } catch (err: any) {
+    return { error: `Failed to fetch preview: ${err.message}` }
+  }
 }
 
 /**
