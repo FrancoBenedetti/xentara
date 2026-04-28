@@ -116,10 +116,11 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                     return await summarizeWithAI(transcript, rawData.title, rawData.metadata, contentLanguage);
                 } catch (e: any) {
                     console.error("[PIPELINE] AI Summarization Error:", e);
-                    if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
-                        throw e; // Throw to trigger Inngest retry for rate limits and server errors
+                    // Retry-able server/quota errors — throw so Inngest retries
+                    if (e.message?.match(/(\[429\]|\[500\]|\[502\]|\[503\]|\[504\]|Rate Limit|quota|exhausted|limit exceeded)/i)) {
+                        throw e;
                     }
-                    // Return local fallback immediately instead of failing the step for other errors (e.g. 400)
+                    // Non-retryable errors (e.g. 400 invalid request) — use fallback excerpt
                     return { summary: transcript.substring(0, 1000) + "... [Note: AI Neural Link encountered an error, showing raw excerpt]", usage: null };
                 }
             });
@@ -132,10 +133,12 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                     return await predictTaste(summary, rawData.title, pub.hub_id, contentLanguage);
                 } catch (e: any) {
                     console.error("[PIPELINE] AI Taste Prediction Error:", e);
-                    if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
-                        throw e; // Throw to trigger Inngest retry
+                    // Retry-able server/quota errors — throw so Inngest retries
+                    if (e.message?.match(/(\[429\]|\[500\]|\[502\]|\[503\]|\[504\]|Rate Limit|quota|exhausted)/i)) {
+                        throw e;
                     }
-                    return { analysis: { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] }, usage: null };
+                    // Non-retryable: surface as a visible failure rather than silent fallback
+                    throw Object.assign(e, { __nonRetryable: true });
                 }
             });
             const analysis = tasteResult.analysis;

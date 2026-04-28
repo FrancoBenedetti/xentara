@@ -608,28 +608,40 @@ export async function addHubTag(hubId: string, name: string, description: string
 
 export async function reprocessPublication(id: string, url: string) {
   const supabase = await createClient()
-  
-  await supabase
-    .from('publications' as never)
-    .update({ 
-      status: 'raw',
-      raw_content: null,
-      error_message: null
-    } as never)
-    .eq('id', id)
 
   const { data: pub } = await supabase
     .from('publications' as never)
-    .select('monitored_sources(type)')
+    .select('raw_content, monitored_sources(type)')
     .eq('id', id)
     .single();
 
   let sourceType = (pub as unknown as PublicationResult)?.monitored_sources?.type;
-  
+
   if (!sourceType) {
     const { detectUrlType } = await import('@/utils/sourcing/engine')
     sourceType = detectUrlType(url)
   }
+
+  // For rsshub sources, the source_url is a channel route (e.g. /youtube/user/@Channel),
+  // NOT the specific video URL. Re-fetching it would return the latest video from the channel
+  // (a completely different item). So we preserve raw_content and use hasContent: true,
+  // which re-runs only the AI steps against the existing description.
+  const isChannelRoute = sourceType === 'rsshub'
+  const existingContent = (pub as any)?.raw_content
+
+  const updatePayload: Record<string, any> = {
+    status: 'raw',
+    error_message: null,
+  }
+  // Only wipe raw_content for source types where we can actually re-fetch the specific item
+  if (!isChannelRoute) {
+    updatePayload.raw_content = null
+  }
+
+  await supabase
+    .from('publications' as never)
+    .update(updatePayload as never)
+    .eq('id', id)
 
   try {
     const inngest = await getInngest()
@@ -639,12 +651,13 @@ export async function reprocessPublication(id: string, url: string) {
           publicationId: id, 
           sourceUrl: url,
           type: sourceType,
-          hasContent: false
+          // rsshub channel routes cannot be re-fetched for a specific item;
+          // use existing raw_content if available
+          hasContent: isChannelRoute && !!existingContent
       }
     })
   } catch (inngestError) {
     console.error("Inngest reprocess failed:", inngestError);
-    // Even if inngest fails, we still want to revalidate the path
   }
 
   revalidatePath('/dashboard')
