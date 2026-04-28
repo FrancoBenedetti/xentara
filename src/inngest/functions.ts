@@ -72,7 +72,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
 
     try {
         const supabase = createServiceClient();
-        const { data: pub } = await (supabase.from('publications') as any).select('hub_id, source_id, hubs(content_language)').eq('id', publicationId).single();
+        const { data: pub } = await (supabase.from('publications') as any).select('hub_id, source_id, intelligence_metadata, hubs(content_language)').eq('id', publicationId).single();
         if (!pub) throw new Error("Publication Context Lost");
         const contentLanguage = pub.hubs?.content_language || 'en-GB';
 
@@ -109,7 +109,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
 
         if (hasTranscript && transcript.length > 50) {
             // 2. CREATIVE AGENT: SUMMARIZATION
-            const summary = await step.run("summarize-content", async () => {
+            const summarizeResult = await step.run("summarize-content", async () => {
                 const supabase = createServiceClient();
                 await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId).throwOnError();
                 try {
@@ -120,13 +120,14 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         throw e; // Throw to trigger Inngest retry for rate limits and server errors
                     }
                     // Return local fallback immediately instead of failing the step for other errors (e.g. 400)
-                    return transcript.substring(0, 1000) + "... [Note: AI Neural Link encountered an error, showing raw excerpt]";
+                    return { summary: transcript.substring(0, 1000) + "... [Note: AI Neural Link encountered an error, showing raw excerpt]", usage: null };
                 }
             });
+            const summary = summarizeResult.summary;
 
             console.log(`[PIPELINE] Summary RECEIVED. Starting Taste Predictor.`);
             // 3. TASTE PREDICTOR AGENT: taxonomy-aware analysis
-            const analysis = await step.run("predict-taste-and-taxonomy", async () => {
+            const tasteResult = await step.run("predict-taste-and-taxonomy", async () => {
                 try {
                     return await predictTaste(summary, rawData.title, pub.hub_id, contentLanguage);
                 } catch (e: any) {
@@ -134,9 +135,10 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                     if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
                         throw e; // Throw to trigger Inngest retry
                     }
-                    return { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] };
+                    return { analysis: { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] }, usage: null };
                 }
             });
+            const analysis = tasteResult.analysis;
 
             console.log(`[PIPELINE] Taste ANALYSIS complete. Saving taxonomy discoveries.`);
             // 4. TAXONOMY AGENT: Save Suggestions & Link Tags
@@ -232,6 +234,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             await step.run("finalize-publication", async () => {
                 console.log(`[PIPELINE] FINALIZING publication: ${publicationId}`);
                 const supabase = createServiceClient();
+                const existingMeta = pub.intelligence_metadata || {};
                 await (supabase
                     .from('publications') as any)
                     .update({
@@ -244,7 +247,15 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         tags: analysis.tags,
                         error_message: null,
                         status: evaluation.matched ? 'auto_purge_tagged' : 'ready',
-                        purge_reason: evaluation.matched ? evaluation.reason : null
+                        purge_reason: evaluation.matched ? evaluation.reason : null,
+                        intelligence_metadata: {
+                            ...existingMeta,
+                            ai_usage: {
+                                summarize: summarizeResult.usage,
+                                predict_taste: tasteResult.usage,
+                                processed_at: new Date().toISOString()
+                            }
+                        }
                     })
                     .eq('id', publicationId)
                     .throwOnError();

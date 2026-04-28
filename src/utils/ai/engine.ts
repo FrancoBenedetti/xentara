@@ -1,9 +1,35 @@
 import { createServiceClient } from '@/utils/supabase/service'
 
 /**
+ * Token usage reported by the Gemini API (usageMetadata field).
+ */
+export interface UsageMetrics {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  model: string;
+}
+
+/**
+ * Structured return type for summarization calls.
+ */
+export interface SummarizeResult {
+  summary: string;
+  usage: UsageMetrics | null;
+}
+
+/**
+ * Structured return type for taste prediction calls.
+ */
+export interface TasteResult {
+  analysis: TasteAnalysis;
+  usage: UsageMetrics | null;
+}
+
+/**
  * AI Engine to summarize transcripts with various providers.
  */
-export async function summarizeWithAI(transcript: string, title: string, metadata: any, contentLanguage?: string) {
+export async function summarizeWithAI(transcript: string, title: string, metadata: any, contentLanguage?: string): Promise<SummarizeResult> {
   let lastError: Error | null = null;
 
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
@@ -31,10 +57,13 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
   // Fallback: Return truncated original if no API keys are set
   console.info("Using local fallback summarization strategy (truncation).");
   const baseContent = transcript || "No usable text was found in the source.";
-  return baseContent.substring(0, 1000) + "... [Note: AI Neural Link was unconfigured, showing raw excerpt]";
+  return {
+    summary: baseContent.substring(0, 1000) + "... [Note: AI Neural Link was unconfigured, showing raw excerpt]",
+    usage: null
+  };
 }
 
-async function summarizeGemini(transcript: string, title: string, contentLanguage?: string) {
+async function summarizeGemini(transcript: string, title: string, contentLanguage?: string): Promise<SummarizeResult> {
   const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The output summary MUST be written in ${contentLanguage}. ` : '';
   const prompt = `Summarize this content titled "${title}". Focus on key analytical facts and concise insights. Format as Markdown. ${languageInstruction}\n\nContent:\n${transcript.substring(0, 30000)}`;
   
@@ -58,14 +87,22 @@ async function summarizeGemini(transcript: string, title: string, contentLanguag
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary returned by Gemini.";
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No summary returned by Gemini.";
+    const raw = data.usageMetadata;
+    const usage: UsageMetrics | null = raw ? {
+      input_tokens: raw.promptTokenCount ?? 0,
+      output_tokens: raw.candidatesTokenCount ?? 0,
+      total_tokens: raw.totalTokenCount ?? 0,
+      model: 'gemini-2.5-flash'
+    } : null;
+    return { summary: text, usage };
   } catch (error: any) {
     clearTimeout(timeoutId);
     throw error;
   }
 }
 
-async function summarizeInception(transcript: string, title: string, contentLanguage?: string) {
+async function summarizeInception(transcript: string, title: string, contentLanguage?: string): Promise<SummarizeResult> {
   const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The output summary MUST be written in ${contentLanguage}. ` : '';
   const prompt = `Summarize this content titled "${title}". Focus on key analytical facts and concise insights. Format as Markdown. ${languageInstruction}\n\nContent:\n${transcript.substring(0, 15000)}`;
   
@@ -94,7 +131,8 @@ async function summarizeInception(transcript: string, title: string, contentLang
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || "No summary returned.";
+    // Inception Labs does not expose standard token counts; usage is null
+    return { summary: data.choices?.[0]?.message?.content || "No summary returned.", usage: null };
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') throw new Error("Inception API: Request timed out (30s).");
@@ -115,9 +153,9 @@ export interface TasteAnalysis {
  * Predicts the "Taste" of a publication (Sentiment, Tags, Byline).
  * Scoped to the specific Hub's taxonomy and strictness rules.
  */
-export async function predictTaste(summary: string | null | undefined, title: string, hubId: string, contentLanguage?: string): Promise<TasteAnalysis> {
+export async function predictTaste(summary: string | null | undefined, title: string, hubId: string, contentLanguage?: string): Promise<TasteResult> {
   if (!summary || summary.trim().length === 0) {
-    return { byline: "No content to analyze.", synopsis: "", sentiment: 0, tags: [] };
+    return { analysis: { byline: "No content to analyze.", synopsis: "", sentiment: 0, tags: [] }, usage: null };
   }
 
   let lastError: Error | null = null;
@@ -203,9 +241,9 @@ export async function predictTaste(summary: string | null | undefined, title: st
         if (!isStrict && result.new_suggestions?.length > 0) {
             console.log("AI Suggesting new flavors:", result.new_suggestions);
         }
-        return result;
+        return { analysis: result, usage: null };
     } catch (e) {
-        return { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] };
+        return { analysis: { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] }, usage: null };
     }
   } catch (error: any) {
     clearTimeout(timeoutId);
@@ -213,7 +251,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
     throw error;
   }
 }
-async function predictTasteGemini(summary: string, title: string, hubId: string, contentLanguage?: string): Promise<TasteAnalysis> {
+async function predictTasteGemini(summary: string, title: string, hubId: string, contentLanguage?: string): Promise<TasteResult> {
     const supabase = createServiceClient()
     const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
     const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true);
@@ -272,7 +310,16 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
 
       const data = await response.json();
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-      return JSON.parse(content);
+      const analysis: TasteAnalysis = JSON.parse(content);
+      const raw = data.usageMetadata;
+      const usage: UsageMetrics | null = raw ? {
+        input_tokens: raw.promptTokenCount ?? 0,
+        output_tokens: raw.candidatesTokenCount ?? 0,
+        total_tokens: raw.totalTokenCount ?? 0,
+        model: 'gemini-2.5-flash'
+      } : null;
+      if (!analysis.new_suggestions) analysis.new_suggestions = [];
+      return { analysis, usage };
     } catch (error: any) {
       clearTimeout(timeoutId);
       throw error;
