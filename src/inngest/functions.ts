@@ -66,14 +66,27 @@ export const discoverNewContentRecurring = (inngest as any).createFunction(
  * 3. INTELLIGENCE PIPELINE (The 7 Agents)
  */
 export const processIntelligencePipeline = (inngest as any).createFunction(
-  { id: "xentara-intelligence-pipeline", triggers: [{ event: "xentara/publication.detected" }] },
+  { 
+    id: "xentara-intelligence-pipeline", 
+    triggers: [{ event: "xentara/publication.detected" }],
+    retries: 20,
+    concurrency: 2
+  },
   async ({ event, step }: any) => {
     const { publicationId, sourceUrl, type, hubId, hasContent } = event.data;
 
     try {
         const supabase = createServiceClient();
-        const { data: pub } = await (supabase.from('publications') as any).select('hub_id, source_id, intelligence_metadata, hubs(content_language)').eq('id', publicationId).single();
+        const { data: pub } = await (supabase.from('publications') as any).select('hub_id, source_id, intelligence_metadata, status, hubs(content_language)').eq('id', publicationId).single();
         if (!pub) throw new Error("Publication Context Lost");
+
+        // Idempotency guard: a retrying run must not overwrite a publication that was
+        // already finalised (e.g. by a manual DB fix or a concurrent pipeline run).
+        if (pub.status === 'ready' || pub.status === 'published' || pub.status === 'auto_purge_tagged') {
+            console.log(`[PIPELINE] ${publicationId} is already '${pub.status}' — skipping stale retry.`);
+            return { status: 'already_finalised', publicationId };
+        }
+
         const contentLanguage = pub.hubs?.content_language || 'en-GB';
 
         // 1. CONTENT INGESTION
@@ -103,7 +116,33 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
             return await ingestContent(sourceUrl, type || 'youtube');
         });
 
-        const transcript = rawData.content || "";
+        const rawTranscript = rawData.content || "";
+
+        // --- Content sanitization ---
+        // Some RSSHub feeds (e.g. YouTube channels) return <iframe> embeds instead of text.
+        // Strip all HTML tags; if the result is trivially short, fall back to the title only.
+        const strippedTranscript = rawTranscript.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+        // Known error sentinels that must not be sent to AI (would produce a "summary of an error")
+        const SENTINELS = [
+            'Media ingestion returned no usable transcript',
+            'AI Neural Link was unconfigured',
+            '[NEURAL FAULT]',
+            'No usable text was found in the source',
+        ];
+        const isSentinel = SENTINELS.some(s => strippedTranscript.includes(s));
+
+        // If content is an error sentinel, fail immediately — don’t waste AI tokens
+        if (isSentinel) {
+            await (supabase.from('publications') as any).update({
+                status: 'failed',
+                error_message: 'Content is an error message — AI processing skipped to avoid wasteful summarization.'
+            }).eq('id', publicationId).throwOnError();
+            return { status: 'sentinel_skipped' };
+        }
+
+        // Use stripped text; if HTML was stripped away to near-nothing, use title as content
+        const transcript = strippedTranscript.length >= 50 ? strippedTranscript : rawData.title || strippedTranscript;
         // 'web' articles always have text content; rss/rsshub pre-load it. YouTube sets has_transcript explicitly.
         const hasTranscript = rawData.metadata?.has_transcript || ['rss', 'rsshub', 'web'].includes(rawData.metadata?.sourceType);
 
@@ -116,11 +155,11 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                     return await summarizeWithAI(transcript, rawData.title, rawData.metadata, contentLanguage);
                 } catch (e: any) {
                     console.error("[PIPELINE] AI Summarization Error:", e);
-                    // Retry-able server/quota errors — throw so Inngest retries
-                    if (e.message?.match(/(\[429\]|\[500\]|\[502\]|\[503\]|\[504\]|Rate Limit|quota|exhausted|limit exceeded)/i)) {
+                    // Retry-able: Gemini/Inception rate limit or server errors
+                    if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
                         throw e;
                     }
-                    // Non-retryable errors (e.g. 400 invalid request) — use fallback excerpt
+                    // Non-retryable (e.g. 400, 401, 402) — use fallback excerpt
                     return { summary: transcript.substring(0, 1000) + "... [Note: AI Neural Link encountered an error, showing raw excerpt]", usage: null };
                 }
             });
@@ -133,11 +172,11 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                     return await predictTaste(summary, rawData.title, pub.hub_id, contentLanguage);
                 } catch (e: any) {
                     console.error("[PIPELINE] AI Taste Prediction Error:", e);
-                    // Retry-able server/quota errors — throw so Inngest retries
-                    if (e.message?.match(/(\[429\]|\[500\]|\[502\]|\[503\]|\[504\]|Rate Limit|quota|exhausted)/i)) {
+                    // Retry-able: rate limit or server errors
+                    if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
                         throw e;
                     }
-                    // Non-retryable: surface as a visible failure rather than silent fallback
+                    // Non-retryable: surface as a visible failure
                     throw Object.assign(e, { __nonRetryable: true });
                 }
             });

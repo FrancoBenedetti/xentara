@@ -36,6 +36,9 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
     try {
       return await summarizeGemini(transcript, title, contentLanguage);
     } catch (e: any) {
+      // Re-throw rate limit errors immediately — do not burn the Inception fallback
+      // on a temporary quota hit. Inngest will retry the step after backoff.
+      if (e.message?.includes('[429]')) throw e;
       console.warn("Gemini AI failed, falling back to Inception/Local...", e.message);
       lastError = e;
     }
@@ -71,7 +74,7 @@ async function summarizeGemini(transcript: string, title: string, contentLanguag
   const timeoutId = setTimeout(() => controller.abort(), 60000); // Gemini can take longer for large contexts
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -93,7 +96,7 @@ async function summarizeGemini(transcript: string, title: string, contentLanguag
       input_tokens: raw.promptTokenCount ?? 0,
       output_tokens: raw.candidatesTokenCount ?? 0,
       total_tokens: raw.totalTokenCount ?? 0,
-      model: 'gemini-2.5-flash'
+      model: 'gemini-2.0-flash'
     } : null;
     return { summary: text, usage };
   } catch (error: any) {
@@ -164,6 +167,8 @@ export async function predictTaste(summary: string | null | undefined, title: st
     try {
         return await predictTasteGemini(summary, title, hubId, contentLanguage);
     } catch (e: any) {
+        // Re-throw rate limit errors immediately — do not burn the Inception fallback
+        if (e.message?.includes('[429]')) throw e;
         console.warn("Gemini Taste Prediction failed, falling back to Inception...", e.message);
         lastError = e;
     }
@@ -292,7 +297,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -316,7 +321,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
         input_tokens: raw.promptTokenCount ?? 0,
         output_tokens: raw.candidatesTokenCount ?? 0,
         total_tokens: raw.totalTokenCount ?? 0,
-        model: 'gemini-2.5-flash'
+        model: 'gemini-2.0-flash'
       } : null;
       if (!analysis.new_suggestions) analysis.new_suggestions = [];
       return { analysis, usage };
@@ -339,7 +344,7 @@ export async function analyzeSentiment(comment: string): Promise<number> {
       Return ONLY a float between -1.0 (very negative) and 1.0 (very positive). 
       Comment: "${comment.substring(0, 2000)}"`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
