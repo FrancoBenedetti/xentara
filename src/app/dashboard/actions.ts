@@ -622,19 +622,27 @@ export async function reprocessPublication(id: string, url: string) {
     sourceType = detectUrlType(url)
   }
 
-  // For rsshub sources, the source_url is a channel route (e.g. /youtube/user/@Channel),
-  // NOT the specific video URL. Re-fetching it would return the latest video from the channel
-  // (a completely different item). So we preserve raw_content and use hasContent: true,
-  // which re-runs only the AI steps against the existing description.
-  const isChannelRoute = sourceType === 'rsshub'
   const existingContent = (pub as any)?.raw_content
+
+  // Determine effective ingestion strategy:
+  //
+  // rsshub + YouTube video URL  → upgrade to 'youtube' type to fetch real transcript;
+  //                               clear raw_content so fresh fetch is forced
+  // rsshub + channel route URL  → preserve raw_content (re-fetching channel returns a
+  //                               DIFFERENT video); use hasContent: true
+  // all other types             → clear raw_content, re-fetch from scratch
+  const isRSSHubYouTubeVideo = sourceType === 'rsshub' && url.includes('youtube.com/watch')
+  const isRSSHubChannelRoute  = sourceType === 'rsshub' && (url.startsWith('/') || !url.startsWith('http'))
+
+  const effectiveType    = isRSSHubYouTubeVideo ? 'youtube' : sourceType
+  const effectiveHasContent = isRSSHubChannelRoute && !!existingContent
 
   const updatePayload: Record<string, any> = {
     status: 'raw',
     error_message: null,
   }
-  // Only wipe raw_content for source types where we can actually re-fetch the specific item
-  if (!isChannelRoute) {
+  // Only preserve raw_content for channel routes (can't re-fetch the specific item)
+  if (!isRSSHubChannelRoute) {
     updatePayload.raw_content = null
   }
 
@@ -647,13 +655,11 @@ export async function reprocessPublication(id: string, url: string) {
     const inngest = await getInngest()
     await inngest.send({
       name: "xentara/publication.detected",
-      data: { 
-          publicationId: id, 
+      data: {
+          publicationId: id,
           sourceUrl: url,
-          type: sourceType,
-          // rsshub channel routes cannot be re-fetched for a specific item;
-          // use existing raw_content if available
-          hasContent: isChannelRoute && !!existingContent
+          type: effectiveType,
+          hasContent: effectiveHasContent
       }
     })
   } catch (inngestError) {
