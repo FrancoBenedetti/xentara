@@ -340,7 +340,9 @@ export async function getRecentPublications(hubId: string, sourceId?: string, pa
     .eq('hub_id', hubId)
     .neq('status', 'purged')
     
-  if (sourceId) {
+  if (sourceId === '__adhoc__') {
+    query = query.is('source_id', null)
+  } else if (sourceId) {
     query = query.eq('source_id', sourceId)
   }
 

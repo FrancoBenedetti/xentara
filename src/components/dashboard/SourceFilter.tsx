@@ -18,7 +18,7 @@ export default function SourceFilter({ sources, activeSourceId }: SourceFilterPr
   const ref = useRef<HTMLDivElement>(null)
 
   const activeSource = sources.find((s) => s.id === activeSourceId)
-  const label = activeSource ? activeSource.name : 'Unified Feed'
+  const label = activeSourceId === '__adhoc__' ? 'Ad Hoc Items' : (activeSource ? activeSource.name : 'Unified Feed')
 
   const setFilter = (id: string | null) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -55,12 +55,12 @@ export default function SourceFilter({ sources, activeSourceId }: SourceFilterPr
           {/* Active dot indicator */}
           <span
             className={styles.sourceFilterDot}
-            style={{ background: activeSourceId ? 'var(--indigo)' : '#10b981' }}
+            style={{ background: activeSourceId === '__adhoc__' ? '#f59e0b' : activeSourceId ? 'var(--indigo)' : '#10b981' }}
           />
           <span className={styles.sourceFilterLabel}>{label}</span>
           {sources.length > 0 && (
             <span className={styles.sourceFilterCount}>
-              {activeSourceId ? '1' : sources.length + 1} / {sources.length + 1}
+              {activeSourceId ? '1' : sources.length + 2} / {sources.length + 2}
             </span>
           )}
           {/* Chevron */}
@@ -92,6 +92,18 @@ export default function SourceFilter({ sources, activeSourceId }: SourceFilterPr
               <span className={styles.sourceDropdownDot} style={{ background: '#10b981' }} />
               <span className={styles.sourceDropdownName}>Unified Feed</span>
               <span className={styles.sourceDropdownMeta}>All sources</span>
+            </button>
+
+            {/* Ad Hoc Items option */}
+            <button
+              role="option"
+              aria-selected={activeSourceId === '__adhoc__'}
+              onClick={() => setFilter('__adhoc__')}
+              className={`${styles.sourceDropdownItem} ${activeSourceId === '__adhoc__' ? styles.sourceDropdownItemActive : ''}`}
+            >
+              <span className={styles.sourceDropdownDot} style={{ background: '#f59e0b' }} />
+              <span className={styles.sourceDropdownName}>Ad Hoc Items</span>
+              <span className={styles.sourceDropdownMeta}>Manual submissions</span>
             </button>
 
             {sources.length > 0 && <div className={styles.sourceDropdownDivider} />}

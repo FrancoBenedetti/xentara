@@ -174,8 +174,8 @@ export default function IntelligenceFeedClient({
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
             <h4 className={styles.feedTitle}>
-              {sourceId ? 'Source Intelligence' : 'Unified Collective Feed'}
-              {sourceId && <span className={styles.feedFilterBadge}> (FILTERED)</span>}
+              {sourceId === '__adhoc__' ? 'Ad Hoc Intelligence' : sourceId ? 'Source Intelligence' : 'Unified Collective Feed'}
+              {sourceId && sourceId !== '__adhoc__' && <span className={styles.feedFilterBadge}> (FILTERED)</span>}
             </h4>
             <div className={styles.feedMeta}>
               <span className={styles.feedStatusActive}>{readyCount} READY</span>
