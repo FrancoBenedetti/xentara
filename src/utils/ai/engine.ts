@@ -63,17 +63,16 @@ async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit): Prom
 
   if (keys.length === 0) throw new Error("No Gemini keys configured.");
 
-  // Try each configured key exactly once in rotation until one succeeds
-  for (let attempt = 0; attempt < keys.length; attempt++) {
-    const now = Date.now();
-    const availableKeys = keys.filter(k => !keyCooldowns.has(k) || now > keyCooldowns.get(k)!);
+  const now = Date.now();
+  const availableKeys = keys.filter(k => !keyCooldowns.has(k) || now > keyCooldowns.get(k)!);
 
-    if (availableKeys.length === 0) {
-      throw new Error("Gemini API Error [429]: All configured keys are currently on cooldown.");
-    }
+  if (availableKeys.length === 0) {
+    throw new Error("Gemini API Error [429]: All configured keys are currently on cooldown.");
+  }
 
-    const key = availableKeys[currentGeminiKeyIndex % availableKeys.length];
-    currentGeminiKeyIndex++;
+  // Try each available key in rotation
+  for (let attempt = 0; attempt < availableKeys.length; attempt++) {
+    const key = availableKeys[(currentGeminiKeyIndex + attempt) % availableKeys.length];
 
     console.log(`[AI Engine] Attempt ${attempt + 1}: Using Gemini Key starting with: ${key.substring(0, 10)}...`);
 
@@ -88,7 +87,7 @@ async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit): Prom
         if (!isNaN(parsed)) retryAfterSeconds = parsed;
         else {
           const date = new Date(retryAfterHeader).getTime();
-          if (!isNaN(date)) retryAfterSeconds = Math.max(1, Math.floor((date - Date.now()) / 1000));
+          if (!isNaN(date)) retryAfterSeconds = Math.max(1, Math.floor((date - now) / 1000));
         }
       }
       
@@ -100,6 +99,8 @@ async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit): Prom
       continue;
     }
 
+    // Success - update the global index to the key AFTER this one for the next request
+    currentGeminiKeyIndex = (currentGeminiKeyIndex + attempt + 1) % availableKeys.length;
     return response;
   }
 
@@ -424,7 +425,7 @@ export async function analyzeSentiment(comment: string): Promise<number> {
       Return ONLY a float between -1.0 (very negative) and 1.0 (very positive). 
       Comment: "${comment.substring(0, 2000)}"`;
 
-      const response = await fetchWithGeminiKey('generateContent', {
+        const response = await fetchWithGeminiKey('generateContent', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -434,9 +435,13 @@ export async function analyzeSentiment(comment: string): Promise<number> {
         const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
         const score = parseFloat(content);
         if (!isNaN(score)) return Math.max(-1.0, Math.min(1.0, score));
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Gemini Sentiment API Error [${response.status}]: ${errorData?.error?.message || response.statusText}`);
       }
-    } catch (e) {
-      console.warn("Gemini sentiment failed:", e);
+    } catch (e: any) {
+      if (e.message?.includes('[429]')) throw e;
+      console.warn("Gemini sentiment failed:", e.message);
     }
   }
 
