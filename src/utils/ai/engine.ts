@@ -108,6 +108,16 @@ async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit): Prom
 }
 
 /**
+ * Distinguishes a transient per-minute rate limit (retry-able) from a daily
+ * quota exhaustion (billing limit hit — won't recover until midnight Pacific).
+ * Daily exhaustion: no retry-after header, message includes "billing" or "plan".
+ */
+function isQuotaExhausted(e: Error): boolean {
+  const msg = e.message?.toLowerCase() ?? '';
+  return msg.includes('billing') || msg.includes('check your plan') || msg.includes('quota');
+}
+
+/**
  * AI Engine to summarize transcripts with various providers.
  */
 export async function summarizeWithAI(transcript: string, title: string, metadata: any, contentLanguage?: string): Promise<SummarizeResult> {
@@ -117,10 +127,17 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
     try {
       return await summarizeGemini(transcript, title, contentLanguage);
     } catch (e: any) {
-      // Re-throw rate limit errors immediately — do not burn the Inception fallback
-      // on a temporary quota hit. Inngest will retry the step after backoff.
-      if (e.message?.includes('[429]')) throw e;
-      console.warn("Gemini AI failed, falling back to Inception/Local...", e.message);
+      if (e.message?.includes('[429]')) {
+        if (!isQuotaExhausted(e)) {
+          // Per-minute rate limit — let Inngest retry with backoff
+          console.warn('[AI Engine] Gemini per-minute rate limit hit. Rethrowing for Inngest retry.');
+          throw e;
+        }
+        // Daily quota exhausted — fall through to Inception immediately
+        console.warn('[AI Engine] Gemini daily quota exhausted. Falling back to Inception.');
+      } else {
+        console.warn('[AI Engine] Gemini summarization failed, falling back to Inception.', e.message);
+      }
       lastError = e;
     }
   }
@@ -248,9 +265,17 @@ export async function predictTaste(summary: string | null | undefined, title: st
     try {
         return await predictTasteGemini(summary, title, hubId, contentLanguage);
     } catch (e: any) {
-        // Re-throw rate limit errors immediately — do not burn the Inception fallback
-        if (e.message?.includes('[429]')) throw e;
-        console.warn("Gemini Taste Prediction failed, falling back to Inception...", e.message);
+        if (e.message?.includes('[429]')) {
+          if (!isQuotaExhausted(e)) {
+            // Per-minute rate limit — let Inngest retry with backoff
+            console.warn('[AI Engine] Gemini per-minute rate limit hit (taste). Rethrowing for Inngest retry.');
+            throw e;
+          }
+          // Daily quota exhausted — fall through to Inception immediately
+          console.warn('[AI Engine] Gemini daily quota exhausted (taste). Falling back to Inception.');
+        } else {
+          console.warn('[AI Engine] Gemini taste prediction failed, falling back to Inception.', e.message);
+        }
         lastError = e;
     }
   }
