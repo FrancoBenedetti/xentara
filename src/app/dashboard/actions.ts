@@ -640,6 +640,8 @@ export async function reprocessPublication(id: string, url: string) {
   const updatePayload: Record<string, any> = {
     status: 'raw',
     error_message: null,
+    summary: '', // Clear old summary
+    synopsis: '', // Clear old synopsis
   }
   // Only preserve raw_content for channel routes (can't re-fetch the specific item)
   if (!isRSSHubChannelRoute) {

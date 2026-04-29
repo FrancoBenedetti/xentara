@@ -30,7 +30,8 @@ async function resolveChannelId(url: string): Promise<string | null> {
     const response = await fetch(targetUrl, {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9'
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.youtube.com/'
         },
         signal: controller.signal
     });
@@ -112,7 +113,9 @@ export async function fetchYoutubeMetadata(url: string) {
         const info = await ytdl.getBasicInfo(url, {
             requestOptions: {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': 'https://www.youtube.com/'
                 }
             }
         });
