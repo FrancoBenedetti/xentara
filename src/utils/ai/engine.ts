@@ -37,21 +37,34 @@ function hasGeminiKeys(): boolean {
     process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     process.env.GEMINI_API_KEY_2,
     process.env.GEMINI_API_KEY_3,
-    process.env.GEMINI_API_KEY_4
+    process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY_5,
+    process.env.GEMINI_API_KEY_6,
+    process.env.GEMINI_API_KEY_7,
+    process.env.GEMINI_API_KEY_8,
+    process.env.GEMINI_API_KEY_9,
+    process.env.GEMINI_API_KEY_10
   ].some(Boolean);
 }
 
-async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit, maxAttempts = 3): Promise<Response> {
+async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit): Promise<Response> {
   const keys = [
     process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     process.env.GEMINI_API_KEY_2,
     process.env.GEMINI_API_KEY_3,
-    process.env.GEMINI_API_KEY_4
+    process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY_5,
+    process.env.GEMINI_API_KEY_6,
+    process.env.GEMINI_API_KEY_7,
+    process.env.GEMINI_API_KEY_8,
+    process.env.GEMINI_API_KEY_9,
+    process.env.GEMINI_API_KEY_10
   ].filter(Boolean) as string[];
 
   if (keys.length === 0) throw new Error("No Gemini keys configured.");
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  // Try each configured key exactly once in rotation until one succeeds
+  for (let attempt = 0; attempt < keys.length; attempt++) {
     const now = Date.now();
     const availableKeys = keys.filter(k => !keyCooldowns.has(k) || now > keyCooldowns.get(k)!);
 
