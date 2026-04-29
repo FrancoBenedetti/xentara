@@ -284,9 +284,15 @@ export async function predictTaste(summary: string | null | undefined, title: st
   
   // 1. Fetch Hub Taxonomy & Strictness
   const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
-  const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true);
+  const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true).limit(60);
   
-  const taxonomyDesc = (tags as any[])?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
+  // For large taxonomies send only names (saves ~25x tokens); for small ones include descriptions for precision
+  const tagList = (tags as any[]) ?? [];
+  const taxonomyDesc = tagList.length === 0
+    ? "No flavors defined yet."
+    : tagList.length > 30
+      ? tagList.map(t => `- ${t.name}`).join('\n')  // names only — large taxonomy
+      : tagList.map(t => `- ${t.name}: ${t.description}`).join('\n'); // full detail — small taxonomy
   const isStrict = (hub as any)?.strictness === 'strict';
 
   const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The refined_title, byline and synopsis MUST be written in ${contentLanguage}.` : '';
@@ -365,9 +371,15 @@ export async function predictTaste(summary: string | null | undefined, title: st
 async function predictTasteGemini(summary: string, title: string, hubId: string, contentLanguage?: string): Promise<TasteResult> {
     const supabase = createServiceClient()
     const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
-    const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true);
+    const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true).limit(60);
     
-    const taxonomyDesc = (tags as any[])?.map(t => `- ${t.name}: ${t.description}`).join('\n') || "No flavors defined yet.";
+    // For large taxonomies send only names (saves ~25x tokens); for small ones include descriptions for precision
+    const tagList = (tags as any[]) ?? [];
+    const taxonomyDesc = tagList.length === 0
+      ? "No flavors defined yet."
+      : tagList.length > 30
+        ? tagList.map(t => `- ${t.name}`).join('\n')  // names only — large taxonomy
+        : tagList.map(t => `- ${t.name}: ${t.description}`).join('\n'); // full detail — small taxonomy
     const isStrict = (hub as any)?.strictness === 'strict';
     const languageInstruction = contentLanguage && contentLanguage !== 'original' ? `The refined_title, byline and synopsis MUST be written in ${contentLanguage}.` : '';
 
