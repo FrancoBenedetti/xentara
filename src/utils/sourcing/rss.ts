@@ -30,8 +30,10 @@ export async function fetchLatestArticlesFromFeed(url: string) {
                 cache: 'no-store', // Bypass Next.js built-in fetch cache
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                    'Accept': 'application/rss+xml, application/xml, text/xml, */*'
-                }
+                    'Accept': 'text/xml,application/xml,application/rss+xml,application/atom+xml,*/*;q=0.1',
+                    'Referer': 'https://www.google.com/'
+                },
+                redirect: 'follow'
             });
 
             if (!response.ok) {
@@ -89,8 +91,10 @@ export async function fetchRSSMetadata(url: string) {
     const response = await fetch(url, {
         cache: 'no-store',
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-        }
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Referer': 'https://www.google.com/'
+        },
+        redirect: 'follow'
     });
 
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
