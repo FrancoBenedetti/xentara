@@ -1,9 +1,11 @@
 import Parser from 'rss-parser';
 
-// Status codes that are transient and worth retrying (not permanent failures like 403/404)
-const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
-const MAX_RETRIES = 3;
-const BASE_BACKOFF_MS = 2000;
+// Status codes that are transient and worth retrying (not permanent failures like 404)
+// We include 403 as well because Cloudflare challenges can sometimes be cleared by retrying
+// or if the server IP pool rotates.
+const RETRYABLE_STATUS_CODES = new Set([403, 429, 500, 502, 503, 504]);
+const MAX_RETRIES = 5;
+const BASE_BACKOFF_MS = 3000;
 
 const parser = new Parser({
     headers: {
@@ -25,6 +27,7 @@ export async function fetchLatestArticlesFromFeed(url: string) {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
             const response = await fetch(url, {
+                cache: 'no-store', // Bypass Next.js built-in fetch cache
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                     'Accept': 'application/rss+xml, application/xml, text/xml, */*'
@@ -84,6 +87,7 @@ export async function fetchLatestArticlesFromFeed(url: string) {
 export async function fetchRSSMetadata(url: string) {
   try {
     const response = await fetch(url, {
+        cache: 'no-store',
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
         }

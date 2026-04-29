@@ -38,7 +38,7 @@ export async function discoverRecentItems(source: any) {
             console.warn(`No items found for source: ${source.url}`);
         }
     } catch (discoveryError: any) {
-        console.error(`Discovery process failed for ${source.url}:`, discoveryError.message);
+        console.error(`[DISCOVERY] CRITICAL FAILURE for ${source.url}:`, discoveryError.message);
         
         // Resolve the feed URL for logging purposes.
         // NOTE: source_url on publications semantically represents the *article* link.

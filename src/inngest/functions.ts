@@ -9,7 +9,11 @@ export { processEngagementFeedback } from "./engagement";
  * Triggered when a new source (channel/feed) is added.
  */
 export const discoverNewContentOnce = (inngest as any).createFunction(
-  { id: "xentara-discovery-instant", triggers: [{ event: "xentara/source.added" }] },
+  { 
+    id: "xentara-discovery-instant", 
+    triggers: [{ event: "xentara/source.added" }],
+    concurrency: 5
+  },
   async ({ event, step }: any) => {
     if (!event?.data?.sourceId) return { status: "skipped" };
     const { sourceId, url, type } = event.data;
