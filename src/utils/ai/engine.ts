@@ -27,12 +27,79 @@ export interface TasteResult {
 }
 
 /**
+ * Helper to manage Gemini API keys with cyclical rotation and rate limit backoff.
+ */
+let currentGeminiKeyIndex = 0;
+const keyCooldowns = new Map<string, number>();
+
+function hasGeminiKeys(): boolean {
+  return [
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4
+  ].some(Boolean);
+}
+
+async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit, maxAttempts = 3): Promise<Response> {
+  const keys = [
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4
+  ].filter(Boolean) as string[];
+
+  if (keys.length === 0) throw new Error("No Gemini keys configured.");
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const now = Date.now();
+    const availableKeys = keys.filter(k => !keyCooldowns.has(k) || now > keyCooldowns.get(k)!);
+
+    if (availableKeys.length === 0) {
+      throw new Error("Gemini API Error [429]: All configured keys are currently on cooldown.");
+    }
+
+    const key = availableKeys[currentGeminiKeyIndex % availableKeys.length];
+    currentGeminiKeyIndex++;
+
+    console.log(`[AI Engine] Attempt ${attempt + 1}: Using Gemini Key starting with: ${key.substring(0, 10)}...`);
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:${urlSuffix}?key=${key}`;
+    const response = await fetch(url, options);
+
+    if (response.status === 429) {
+      let retryAfterSeconds = 60; // Default wait time
+      const retryAfterHeader = response.headers.get('retry-after');
+      if (retryAfterHeader) {
+        const parsed = parseInt(retryAfterHeader, 10);
+        if (!isNaN(parsed)) retryAfterSeconds = parsed;
+        else {
+          const date = new Date(retryAfterHeader).getTime();
+          if (!isNaN(date)) retryAfterSeconds = Math.max(1, Math.floor((date - Date.now()) / 1000));
+        }
+      }
+      
+      // Safety factor: add 10 seconds
+      retryAfterSeconds += 10;
+      
+      console.warn(`[AI Engine] Key ${key.substring(0, 10)}... hit 429. Cooldown for ${retryAfterSeconds}s.`);
+      keyCooldowns.set(key, Date.now() + retryAfterSeconds * 1000);
+      continue;
+    }
+
+    return response;
+  }
+
+  throw new Error("Gemini API Error [429]: Max retries exhausted, all attempted keys rate-limited.");
+}
+
+/**
  * AI Engine to summarize transcripts with various providers.
  */
 export async function summarizeWithAI(transcript: string, title: string, metadata: any, contentLanguage?: string): Promise<SummarizeResult> {
   let lastError: Error | null = null;
 
-  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (hasGeminiKeys()) {
     try {
       return await summarizeGemini(transcript, title, contentLanguage);
     } catch (e: any) {
@@ -53,7 +120,7 @@ export async function summarizeWithAI(transcript: string, title: string, metadat
     }
   }
 
-  if (lastError && (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.INCEPTION_API_KEY)) {
+  if (lastError && (hasGeminiKeys() || process.env.INCEPTION_API_KEY)) {
       throw new Error(`AI Summarization Failed: ${lastError.message}`);
   }
 
@@ -74,7 +141,7 @@ async function summarizeGemini(transcript: string, title: string, contentLanguag
   const timeoutId = setTimeout(() => controller.abort(), 60000); // Gemini can take longer for large contexts
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+    const response = await fetchWithGeminiKey('generateContent', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -96,7 +163,7 @@ async function summarizeGemini(transcript: string, title: string, contentLanguag
       input_tokens: raw.promptTokenCount ?? 0,
       output_tokens: raw.candidatesTokenCount ?? 0,
       total_tokens: raw.totalTokenCount ?? 0,
-      model: 'gemini-2.0-flash'
+      model: 'gemini-2.5-flash'
     } : null;
     return { summary: text, usage };
   } catch (error: any) {
@@ -163,7 +230,7 @@ export async function predictTaste(summary: string | null | undefined, title: st
 
   let lastError: Error | null = null;
 
-  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (hasGeminiKeys()) {
     try {
         return await predictTasteGemini(summary, title, hubId, contentLanguage);
     } catch (e: any) {
@@ -297,7 +364,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+      const response = await fetchWithGeminiKey('generateContent', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -321,7 +388,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
         input_tokens: raw.promptTokenCount ?? 0,
         output_tokens: raw.candidatesTokenCount ?? 0,
         total_tokens: raw.totalTokenCount ?? 0,
-        model: 'gemini-2.0-flash'
+        model: 'gemini-2.5-flash'
       } : null;
       if (!analysis.new_suggestions) analysis.new_suggestions = [];
       return { analysis, usage };
@@ -338,13 +405,13 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
 export async function analyzeSentiment(comment: string): Promise<number> {
   if (!comment || comment.trim().length === 0) return 0;
 
-  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (hasGeminiKeys()) {
     try {
       const prompt = `Analyze the sentiment of this user comment regarding an article. 
       Return ONLY a float between -1.0 (very negative) and 1.0 (very positive). 
       Comment: "${comment.substring(0, 2000)}"`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`, {
+      const response = await fetchWithGeminiKey('generateContent', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
