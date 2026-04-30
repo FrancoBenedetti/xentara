@@ -85,7 +85,7 @@ async function fetchWithGeminiKey(urlSuffix: string, options: RequestInit): Prom
 
     console.log(`[AI Engine] Attempt ${attempt + 1}: Using Gemini Key starting with: ${key.substring(0, 10)}...`);
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:${urlSuffix}?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:${urlSuffix}?key=${key}`;
     const response = await fetch(url, options);
 
     if (response.status === 429) {
@@ -203,7 +203,7 @@ async function summarizeGemini(transcript: string, title: string, contentLanguag
       input_tokens: raw.promptTokenCount ?? 0,
       output_tokens: raw.candidatesTokenCount ?? 0,
       total_tokens: raw.totalTokenCount ?? 0,
-      model: 'gemini-3-flash'
+      model: 'gemini-3-flash-preview'
     } : null;
     return { summary: text, usage };
   } catch (error: any) {
@@ -448,7 +448,7 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
         input_tokens: raw.promptTokenCount ?? 0,
         output_tokens: raw.candidatesTokenCount ?? 0,
         total_tokens: raw.totalTokenCount ?? 0,
-        model: 'gemini-3-flash'
+        model: 'gemini-3-flash-preview'
       } : null;
       if (!analysis.new_suggestions) analysis.new_suggestions = [];
       return { analysis, usage };
@@ -599,7 +599,7 @@ async function processSinglePassGemini(transcript: string, title: string, hubId:
         input_tokens: raw.promptTokenCount ?? 0,
         output_tokens: raw.candidatesTokenCount ?? 0,
         total_tokens: raw.totalTokenCount ?? 0,
-        model: 'gemini-3-flash'
+        model: 'gemini-3-flash-preview'
       } : null;
 
       const analysis: TasteAnalysis = {

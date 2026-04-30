@@ -133,7 +133,7 @@ export async function fetchYoutubeMetadata(url: string) {
         console.warn(`ytdl.getBasicInfo blocked for ${videoId}: ${ytdlError.message}`);
     }
 
-    // --- Attempt 2: Transcript via YoutubeTranscript (uses timedtext API, more reliable) ---
+    // --- Attempt 2: Transcript via YoutubeTranscript (tries InnerTube then web scrape) ---
     let transcript = "";
     let hasTranscript = false;
     try {
@@ -141,7 +141,84 @@ export async function fetchYoutubeMetadata(url: string) {
         transcript = transcriptData.map(item => item.text).join(" ");
         hasTranscript = transcript.length > 50;
     } catch (transcriptError: any) {
-        console.warn(`Transcript extraction failed for ${videoId}: ${transcriptError.message}`);
+        console.warn(`YoutubeTranscript library threw for ${videoId}: ${transcriptError.message}`);
+    }
+
+    // If the library returned empty (either threw or returned []), try InnerTube directly
+    if (!hasTranscript) {
+        console.warn(`YoutubeTranscript returned no content for ${videoId}. Trying InnerTube fallback...`);
+        try {
+            const innerTubeRes = await fetch(
+                'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)',
+                    },
+                    body: JSON.stringify({
+                        context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
+                        videoId,
+                    }),
+                }
+            );
+
+            if (innerTubeRes.ok) {
+                const playerData = await innerTubeRes.json();
+                const captionTracks: any[] =
+                    playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
+
+                if (captionTracks.length > 0) {
+                    // Prefer English track, fall back to first available
+                    const track =
+                        captionTracks.find((t: any) => t.languageCode === 'en') ??
+                        captionTracks[0];
+
+                    if (track?.baseUrl) {
+                        const ttRes = await fetch(track.baseUrl, {
+                            headers: {
+                                'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)',
+                            },
+                        });
+
+                        if (ttRes.ok) {
+                            const xml = await ttRes.text();
+                            // Parse both <p><s> (XML3) and legacy <text> formats
+                            const psSegments = [...xml.matchAll(/<p\s+t="\d+"\s+d="\d+"[^>]*>([\s\S]*?)<\/p>/g)];
+                            if (psSegments.length > 0) {
+                                transcript = psSegments.map(m => {
+                                    const inner = m[1];
+                                    const sMatches = [...inner.matchAll(/<s[^>]*>([^<]*)<\/s>/g)];
+                                    return sMatches.length > 0
+                                        ? sMatches.map(s => s[1]).join('')
+                                        : inner.replace(/<[^>]+>/g, '');
+                                }).join(' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+                            } else {
+                                // Legacy <text> format
+                                const textMatches = [...xml.matchAll(/<text start="[^"]*" dur="[^"]*">([^<]+)<\/text>/g)];
+                                transcript = textMatches.map(m => m[1]
+                                    .replace(/&amp;/g, '&')
+                                    .replace(/&#39;/g, "'")
+                                    .replace(/&quot;/g, '"')
+                                ).join(' ').trim();
+                            }
+                            hasTranscript = transcript.length > 50;
+                            if (hasTranscript) {
+                                console.info(`InnerTube fallback succeeded for ${videoId}: ${transcript.length} chars`);
+                            } else {
+                                console.warn(`InnerTube fallback: captionTrack baseUrl returned empty content for ${videoId}`);
+                            }
+                        }
+                    }
+                } else {
+                    console.warn(`InnerTube: no captionTracks in player response for ${videoId}`);
+                }
+            } else {
+                console.warn(`InnerTube player API returned ${innerTubeRes.status} for ${videoId}`);
+            }
+        } catch (innerTubeError: any) {
+            console.warn(`InnerTube fallback failed for ${videoId}: ${innerTubeError.message}`);
+        }
 
         // Fallback: use video description from ytdl if we have it
         const description = videoDetails?.description || "";

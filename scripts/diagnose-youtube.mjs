@@ -23,8 +23,8 @@ try {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const CHANNEL_URL   = 'https://www.youtube.com/@wesroth';
-const VIDEO_URL     = 'https://www.youtube.com/watch?v=QFTwUvE-lO0';
-const VIDEO_ID      = 'QFTwUvE-lO0';
+const VIDEO_URL     = 'https://www.youtube.com/watch?v=Mz7W0qNlmOw';
+const VIDEO_ID      = 'Mz7W0qNlmOw';
 
 const GEMINI_KEYS = [
   process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -172,28 +172,76 @@ async function testTranscript() {
       }
     }
 
-    // Try fetching the timedtext API directly (what YoutubeTranscript uses under the hood)
-    const timedtextMatch = html.match(/"baseUrl":"(https:\/\/www\.youtube\.com\/api\/timedtext[^"]+)"/);
-    if (timedtextMatch) {
-      const timedtextUrl = timedtextMatch[1].replace(/\\u0026/g, '&');
-      console.log(info(`Testing timedtext API directly...`));
+    // Extract full captionTracks from ytInitialPlayerResponse JSON
+    const captionTracksMatch = html.match(/"captionTracks":(\[.*?\])/s);
+    if (captionTracksMatch) {
       try {
-        const ttCtrl = new AbortController();
-        const ttT = setTimeout(() => ttCtrl.abort(), 10000);
-        const ttRes = await fetch(timedtextUrl, { headers: YT_HEADERS, signal: ttCtrl.signal });
-        clearTimeout(ttT);
-        if (ttRes.ok) {
-          const xml = await ttRes.text();
-          const textCount = (xml.match(/<text /g) || []).length;
-          console.log(ok(`Timedtext API returned ${textCount} caption segments — transcript AVAILABLE`));
-        } else {
-          console.log(fail(`Timedtext API returned ${ttRes.status}`));
+        // The JSON may contain unicode escapes like \u0026 — decode them
+        const cleanedJson = captionTracksMatch[1].replace(/\\u0026/g, '&').replace(/\\u003d/g, '=');
+        const tracks = JSON.parse(cleanedJson);
+        console.log(info(`Found ${tracks.length} caption track(s):`));
+        for (const track of tracks.slice(0, 3)) {
+          console.log(info(`  - lang=${track.languageCode} kind=${track.kind || 'standard'} name="${track.name?.simpleText || ''}"`));
+        }
+
+        // Try fetching first available track
+        const firstTrack = tracks[0];
+        if (firstTrack?.baseUrl) {
+          const trackUrl = firstTrack.baseUrl;
+          console.log(info(`First track baseUrl (first 150): ${trackUrl.substring(0, 150)}...`));
+          const isAsr = firstTrack.kind === 'asr';
+
+          // For ASR (auto-generated) tracks, try appending tlang=en
+          const urlsToTry = [
+            { label: 'raw baseUrl', url: trackUrl },
+            ...(isAsr ? [{ label: 'baseUrl + &tlang=en', url: trackUrl + '&tlang=en' }] : []),
+          ];
+
+          for (const { label, url } of urlsToTry) {
+            console.log(info(`Testing ${label}...`));
+            try {
+              const ttCtrl = new AbortController();
+              const ttT = setTimeout(() => ttCtrl.abort(), 10000);
+              const ttRes = await fetch(url, { headers: YT_HEADERS, signal: ttCtrl.signal });
+              clearTimeout(ttT);
+              if (ttRes.ok) {
+                const body = await ttRes.text();
+                const textCount = (body.match(/<text /g) || []).length;
+                const sCount = (body.match(/<s /g) || []).length;
+                const total = textCount + sCount;
+                if (total > 0) {
+                  console.log(ok(`[${label}] Timedtext returned ${total} segments — TRANSCRIPT AVAILABLE`));
+                  break;
+                } else if (body.length > 0) {
+                  try {
+                    const json = JSON.parse(body);
+                    const evCount = json.events?.filter(e => e.segs)?.length || 0;
+                    if (evCount > 0) {
+                      console.log(ok(`[${label}] Timedtext JSON3 returned ${evCount} events — TRANSCRIPT AVAILABLE`));
+                      break;
+                    } else {
+                      console.log(warn(`[${label}] JSON3 with 0 usable events`));
+                    }
+                  } catch {
+                    console.log(warn(`[${label}] Non-empty non-JSON body (${body.length} bytes): ${body.substring(0, 100)}`));
+                  }
+                } else {
+                  console.log(fail(`[${label}] Empty body (200 OK)`));
+                }
+              } else {
+                console.log(fail(`[${label}] HTTP ${ttRes.status}`));
+              }
+            } catch (e) {
+              console.log(fail(`[${label}] threw: ${e.message}`));
+            }
+          }
         }
       } catch (e) {
-        console.log(fail(`Timedtext fetch threw: ${e.message}`));
+        console.log(warn(`Failed to parse captionTracks JSON: ${e.message}`));
+        console.log(warn(`Raw: ${captionTracksMatch[1].substring(0, 200)}`));
       }
     } else {
-      console.log(warn('Could not locate timedtext URL in page HTML'));
+      console.log(warn('Could not locate captionTracks in page HTML'));
     }
   } catch (e) {
     if (e.name === 'AbortError') {
@@ -221,7 +269,7 @@ async function testGeminiKeys() {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 15000);
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
