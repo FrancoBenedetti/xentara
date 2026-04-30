@@ -223,7 +223,7 @@ export async function fetchYoutubeMetadata(url: string) {
         // Fallback: use video description from ytdl if we have it
         let description = videoDetails?.description || "";
 
-        if (!description || description.length <= 200) {
+        if (!description || description.length <= 10) {
             const ytKey = process.env.YOUTUBE_KEY;
             if (ytKey) {
                 try {
@@ -243,7 +243,7 @@ export async function fetchYoutubeMetadata(url: string) {
             }
         }
 
-        if (description.length > 200) {
+        if (description.length > 10) {
             transcript = description;
             hasTranscript = true;
         }
