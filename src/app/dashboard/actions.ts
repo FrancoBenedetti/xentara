@@ -609,7 +609,8 @@ export async function addHubTag(hubId: string, name: string, description: string
 }
 
 export async function reprocessPublication(id: string, url: string) {
-  const supabase = await createClient()
+  const { createServiceClient } = await import('@/utils/supabase/service')
+  const supabase = createServiceClient()
 
   const { data: pub } = await supabase
     .from('publications' as never)
@@ -643,17 +644,21 @@ export async function reprocessPublication(id: string, url: string) {
     status: 'raw',
     error_message: null,
     summary: '', // Clear old summary
-    synopsis: '', // Clear old synopsis
   }
   // Only preserve raw_content for channel routes (can't re-fetch the specific item)
   if (!isRSSHubChannelRoute) {
     updatePayload.raw_content = null
   }
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('publications' as never)
     .update(updatePayload as never)
     .eq('id', id)
+    
+  if (updateError) {
+    console.error('Failed to update publication:', updateError)
+    throw new Error(updateError.message)
+  }
 
   try {
     const inngest = await getInngest()
