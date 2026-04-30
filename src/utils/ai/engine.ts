@@ -27,6 +27,15 @@ export interface TasteResult {
 }
 
 /**
+ * Structured return type for the Single-Pass Intelligence pipeline.
+ */
+export interface SinglePassIntelligenceResult {
+  summary: string;
+  analysis: TasteAnalysis;
+  usage: UsageMetrics | null;
+}
+
+/**
  * Helper to manage Gemini API keys with cyclical rotation and rate limit backoff.
  */
 let currentGeminiKeyIndex = 0;
@@ -445,6 +454,257 @@ async function predictTasteGemini(summary: string, title: string, hubId: string,
       return { analysis, usage };
     } catch (error: any) {
       clearTimeout(timeoutId);
+      throw error;
+    }
+}
+
+/**
+ * SINGLE-PASS INTELLIGENCE
+ * Combines summarization, translation, and taxonomy prediction into a single API call.
+ * This halves the number of requests per article and vastly reduces token usage.
+ */
+export async function processSinglePassIntelligence(transcript: string, title: string, hubId: string, contentLanguage?: string): Promise<SinglePassIntelligenceResult> {
+  if (!transcript || transcript.trim().length === 0) {
+    return {
+      summary: "No content to analyze.",
+      analysis: { byline: "No content.", synopsis: "", sentiment: 0, tags: [] },
+      usage: null
+    };
+  }
+
+  let lastError: Error | null = null;
+
+  if (hasGeminiKeys()) {
+    try {
+        return await processSinglePassGemini(transcript, title, hubId, contentLanguage);
+    } catch (e: any) {
+        if (e.message?.includes('[429]')) {
+          if (!isQuotaExhausted(e)) {
+            console.warn('[AI Engine] Gemini per-minute rate limit hit (single-pass). Rethrowing for Inngest retry.');
+            throw e;
+          }
+          console.warn('[AI Engine] Gemini daily quota exhausted (single-pass). Falling back to Inception.');
+        } else {
+          console.warn('[AI Engine] Gemini single-pass failed, falling back to Inception.', e.message);
+        }
+        lastError = e;
+    }
+  }
+
+  // Fallback to Inception
+  if (process.env.INCEPTION_API_KEY) {
+    try {
+      return await processSinglePassInception(transcript, title, hubId, contentLanguage);
+    } catch (e: any) {
+      console.warn("Inception Labs single-pass failed, falling back...", e.message);
+      lastError = e;
+    }
+  }
+
+  if (lastError && (hasGeminiKeys() || process.env.INCEPTION_API_KEY)) {
+      throw new Error(`AI Single-Pass Failed: ${lastError.message}`);
+  }
+
+  const baseContent = transcript || "No usable text was found in the source.";
+  return {
+    summary: baseContent.substring(0, 1000) + "... [Note: AI Neural Link was unconfigured, showing raw excerpt]",
+    analysis: { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] },
+    usage: null
+  };
+}
+
+async function getHubTaxonomyPrompt(hubId: string, isStrict: boolean): Promise<string> {
+  const supabase = createServiceClient();
+  const { data: tags } = await supabase.from('hub_tags').select('name, description').eq('hub_id', hubId).eq('is_confirmed', true).limit(60);
+  const tagList = (tags as any[]) ?? [];
+  const taxonomyDesc = tagList.length === 0
+    ? "No flavors defined yet."
+    : tagList.length > 30
+      ? tagList.map(t => `- ${t.name}`).join('\n')
+      : tagList.map(t => `- ${t.name}: ${t.description}`).join('\n');
+
+  return `
+    Current Hub Flavors (Lenses):
+    ${taxonomyDesc}
+
+    Taxonomy Rules:
+    ${isStrict ? "STRICT MODE: Match the content ONLY to the existing flavors above. Force a match if possible." : "EXPLORATORY MODE: Match to existing flavors first. If none represent the content accurately, CREATE up to 2 new high-precision flavors."}
+  `;
+}
+
+async function processSinglePassGemini(transcript: string, title: string, hubId: string, contentLanguage?: string): Promise<SinglePassIntelligenceResult> {
+    const supabase = createServiceClient();
+    const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
+    const isStrict = (hub as any)?.strictness === 'strict';
+    const taxonomyContext = await getHubTaxonomyPrompt(hubId, isStrict);
+
+    const languageInstruction = contentLanguage && contentLanguage !== 'original' 
+      ? `The output 'summary', 'refined_title', 'byline', and 'synopsis' MUST be written in ${contentLanguage}.` 
+      : '';
+
+    const prompt = `
+      Analyze this content titled "${title}" for the Xentara Collective.
+      
+      ${taxonomyContext}
+
+      Instructions:
+      1. Provide a 'summary' of the content focusing on key analytical facts and concise insights. Format as Markdown.
+      2. Provide a 'refined_title' that is a clean, compelling version of the original title.
+      3. Provide a short, compelling 150-character 'byline'.
+      4. Provide a 2-3 sentence 'synopsis' of the article.
+      5. Sentiment score -1.0 to 1.0. 
+      6. Limit result to 5 total 'tags' based on the Taxonomy Rules.
+      ${languageInstruction}
+
+      Return ONLY a JSON object:
+      {
+        "summary": "string",
+        "refined_title": "string",
+        "byline": "string",
+        "synopsis": "string",
+        "sentiment": number,
+        "tags": ["string", ...],
+        "new_suggestions": [{"name": "string", "description": "string"}]
+      }
+
+      Content Transcript: ${transcript.substring(0, 30000)}
+    `;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    try {
+      const response = await fetchWithGeminiKey('generateContent', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { response_mime_type: "application/json" }
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`Gemini Single-Pass API Error [${response.status}]: ${errorData?.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      const result = JSON.parse(content);
+      
+      const raw = data.usageMetadata;
+      const usage: UsageMetrics | null = raw ? {
+        input_tokens: raw.promptTokenCount ?? 0,
+        output_tokens: raw.candidatesTokenCount ?? 0,
+        total_tokens: raw.totalTokenCount ?? 0,
+        model: 'gemini-2.5-flash'
+      } : null;
+
+      const analysis: TasteAnalysis = {
+        byline: result.byline || "Intelligence processed.",
+        synopsis: result.synopsis || "",
+        sentiment: result.sentiment || 0.5,
+        tags: result.tags || ["active"],
+        new_suggestions: result.new_suggestions || [],
+        refined_title: result.refined_title
+      };
+
+      return { summary: result.summary || "No summary provided.", analysis, usage };
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+}
+
+async function processSinglePassInception(transcript: string, title: string, hubId: string, contentLanguage?: string): Promise<SinglePassIntelligenceResult> {
+    const supabase = createServiceClient();
+    const { data: hub } = await supabase.from('hubs').select('strictness').eq('id', hubId).single();
+    const isStrict = (hub as any)?.strictness === 'strict';
+    const taxonomyContext = await getHubTaxonomyPrompt(hubId, isStrict);
+
+    const languageInstruction = contentLanguage && contentLanguage !== 'original' 
+      ? `The output 'summary', 'refined_title', 'byline', and 'synopsis' MUST be written in ${contentLanguage}.` 
+      : '';
+
+    const prompt = `
+      Analyze this content titled "${title}" for the Xentara Collective.
+      
+      ${taxonomyContext}
+
+      Instructions:
+      1. Provide a 'summary' of the content focusing on key analytical facts and concise insights. Format as Markdown.
+      2. Provide a 'refined_title' that is a clean, compelling version of the original title.
+      3. Provide a short, compelling 150-character 'byline'.
+      4. Provide a 2-3 sentence 'synopsis' of the article.
+      5. Sentiment score -1.0 to 1.0. 
+      6. Limit result to 5 total 'tags' based on the Taxonomy Rules.
+      ${languageInstruction}
+
+      Return ONLY a JSON object:
+      {
+        "summary": "string",
+        "refined_title": "string",
+        "byline": "string",
+        "synopsis": "string",
+        "sentiment": number,
+        "tags": ["string", ...],
+        "new_suggestions": [{"name": "string", "description": "string"}]
+      }
+
+      Content Transcript: ${transcript.substring(0, 15000)}
+    `;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+    try {
+      const response = await fetch("https://api.inceptionlabs.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.INCEPTION_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: prompt }],
+          model: "mercury-2"
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const message = errorData?.error?.message || response.statusText;
+          throw new Error(`Inception API Single-Pass Error [${response.status}]: ${message}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      const jsonStr = content.includes("{") ? content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1) : "{}";
+      
+      try {
+          const result = JSON.parse(jsonStr);
+          const analysis: TasteAnalysis = {
+            byline: result.byline || "Intelligence processed.",
+            synopsis: result.synopsis || "",
+            sentiment: result.sentiment || 0.5,
+            tags: result.tags || ["active"],
+            new_suggestions: result.new_suggestions || [],
+            refined_title: result.refined_title
+          };
+          return { summary: result.summary || "No summary provided.", analysis, usage: null };
+      } catch (e) {
+          return {
+             summary: "Failed to parse intelligence payload.",
+             analysis: { byline: "Intelligence processed.", synopsis: "Analysis complete.", sentiment: 0.5, tags: ["active"] },
+             usage: null
+          };
+      }
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') throw new Error("Inception API Single-Pass: Request timed out.");
       throw error;
     }
 }

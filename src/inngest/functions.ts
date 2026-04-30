@@ -1,7 +1,7 @@
 import { inngest } from "./client";
 import { createServiceClient } from "@/utils/supabase/service";
 import { ingestContent, discoverRecentItems } from "@/utils/sourcing/engine";
-import { summarizeWithAI, predictTaste } from "@/utils/ai/engine";
+import { summarizeWithAI, predictTaste, processSinglePassIntelligence } from "@/utils/ai/engine";
 export { distributePublication } from "./distribution";
 export { processEngagementFeedback } from "./engagement";
 /**
@@ -151,32 +151,15 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
         const hasTranscript = rawData.metadata?.has_transcript || ['rss', 'rsshub', 'web'].includes(rawData.metadata?.sourceType);
 
         if (hasTranscript && transcript.length > 50) {
-            // 2. CREATIVE AGENT: SUMMARIZATION
-            const summarizeResult = await step.run("summarize-content", async () => {
+            // 2 & 3. SINGLE-PASS INTELLIGENCE AGENT (Summarization & Taxonomy)
+            const intelligenceResult = await step.run("process-intelligence", async () => {
                 const supabase = createServiceClient();
-                await (supabase.from('publications') as any).update({ status: 'summarizing' }).eq('id', publicationId).throwOnError();
+                await (supabase.from('publications') as any).update({ status: 'analyzing' }).eq('id', publicationId).throwOnError();
                 try {
-                    return await summarizeWithAI(transcript, rawData.title, rawData.metadata, contentLanguage);
+                    return await processSinglePassIntelligence(transcript, rawData.title, pub.hub_id, contentLanguage);
                 } catch (e: any) {
-                    console.error("[PIPELINE] AI Summarization Error:", e);
+                    console.error("[PIPELINE] AI Single-Pass Error:", e);
                     // Retry-able: Gemini/Inception rate limit or server errors
-                    if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
-                        throw e;
-                    }
-                    // Non-retryable (e.g. 400, 401, 402) — use fallback excerpt
-                    return { summary: transcript.substring(0, 1000) + "... [Note: AI Neural Link encountered an error, showing raw excerpt]", usage: null };
-                }
-            });
-            const summary = summarizeResult.summary;
-
-            console.log(`[PIPELINE] Summary RECEIVED. Starting Taste Predictor.`);
-            // 3. TASTE PREDICTOR AGENT: taxonomy-aware analysis
-            const tasteResult = await step.run("predict-taste-and-taxonomy", async () => {
-                try {
-                    return await predictTaste(summary, rawData.title, pub.hub_id, contentLanguage);
-                } catch (e: any) {
-                    console.error("[PIPELINE] AI Taste Prediction Error:", e);
-                    // Retry-able: rate limit or server errors
                     if (e.message?.match(/\[(429|500|502|503|504)\]/)) {
                         throw e;
                     }
@@ -184,7 +167,8 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                     throw Object.assign(e, { __nonRetryable: true });
                 }
             });
-            const analysis = tasteResult.analysis;
+            const summary = intelligenceResult.summary;
+            const analysis = intelligenceResult.analysis;
 
             console.log(`[PIPELINE] Taste ANALYSIS complete. Saving taxonomy discoveries.`);
             // 4. TAXONOMY AGENT: Save Suggestions & Link Tags
@@ -297,8 +281,7 @@ export const processIntelligencePipeline = (inngest as any).createFunction(
                         intelligence_metadata: {
                             ...existingMeta,
                             ai_usage: {
-                                summarize: summarizeResult.usage,
-                                predict_taste: tasteResult.usage,
+                                single_pass: intelligenceResult.usage,
                                 processed_at: new Date().toISOString()
                             }
                         }
