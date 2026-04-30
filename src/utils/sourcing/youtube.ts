@@ -221,7 +221,28 @@ export async function fetchYoutubeMetadata(url: string) {
         }
 
         // Fallback: use video description from ytdl if we have it
-        const description = videoDetails?.description || "";
+        let description = videoDetails?.description || "";
+
+        if (!description || description.length <= 200) {
+            const ytKey = process.env.YOUTUBE_KEY;
+            if (ytKey) {
+                try {
+                    const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${ytKey}`);
+                    if (ytRes.ok) {
+                        const ytData = await ytRes.json();
+                        if (ytData?.items?.[0]?.snippet?.description) {
+                            description = ytData.items[0].snippet.description;
+                            console.info(`Fetched description from YouTube Data API for ${videoId}`);
+                        }
+                    } else {
+                        console.warn(`YouTube Data API returned ${ytRes.status} for ${videoId}`);
+                    }
+                } catch (e: any) {
+                    console.warn(`YouTube Data API fallback failed: ${e.message}`);
+                }
+            }
+        }
+
         if (description.length > 200) {
             transcript = description;
             hasTranscript = true;
