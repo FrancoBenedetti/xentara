@@ -176,7 +176,7 @@ export interface Database {
     }
     Enums: {
       source_type: 'youtube' | 'rss' | 'rumble' | 'twitter' | 'manual' | 'rsshub'
-      publication_status: 'raw' | 'transcribing' | 'summarizing' | 'ready' | 'failed'
+      publication_status: 'raw' | 'transcribing' | 'summarizing' | 'analyzing' | 'ready' | 'failed'
     }
   }
 }
